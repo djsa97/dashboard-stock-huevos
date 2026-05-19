@@ -146,7 +146,17 @@ def load_csv(path: Path) -> pd.DataFrame:
 
 def save_initial_stock(df: pd.DataFrame) -> None:
     df.to_csv(INICIAL_OUTPUT, index=False)
-    movimientos = load_csv(MOVIMIENTOS_OUTPUT)
+    entradas = load_csv(ENTRADAS_OUTPUT)
+    salidas = load_csv(SALIDAS_OUTPUT)
+    if entradas.empty and salidas.empty:
+        movimientos = load_csv(MOVIMIENTOS_OUTPUT)
+    elif entradas.empty:
+        movimientos = salidas.copy()
+    elif salidas.empty:
+        movimientos = entradas.copy()
+    else:
+        movimientos = pd.concat([entradas, salidas], ignore_index=True)
+
     if movimientos.empty:
         resumen = pd.DataFrame(
             [

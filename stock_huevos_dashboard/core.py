@@ -65,6 +65,12 @@ TRACKED_PRODUCTS = [
     BucketConfig("DE_20", "De 20"),
 ]
 
+PACKAGED_TYPE_A_SKUS = {
+    "PLANCHA 6 HUEVOS TIPO A COD. 7848000130043": ("DE_6", "De 6", 6 / 30),
+    "PLANCHA 12 HUEVOS TIPO A COD.7848000130036": ("DE_12", "De 12", 12 / 30),
+    "PLANCHAS 20 HUEVOS TIPO A COD.7848000130074": ("DE_20", "De 20", 20 / 30),
+}
+
 
 def ensure_initial_stock_file() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -81,10 +87,57 @@ def ensure_initial_stock_file() -> None:
     pd.DataFrame(rows).to_csv(INICIAL_OUTPUT, index=False)
 
 
+def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict[str, float]) -> pd.DataFrame:
+    if movimientos.empty:
+        return movimientos
+
+    remaining_packaged_stock = {
+        bucket: float(inicial_map.get(bucket, 0.0))
+        for bucket, _, _ in PACKAGED_TYPE_A_SKUS.values()
+    }
+    adjusted_rows: list[dict] = []
+    movimientos_sorted = movimientos.copy()
+    movimientos_sorted["fecha"] = pd.to_datetime(movimientos_sorted["fecha"], errors="coerce")
+    movimientos_sorted = movimientos_sorted.sort_values(["fecha", "tipo_movimiento", "producto_fuente"])
+
+    for _, row in movimientos_sorted.iterrows():
+        row_dict = row.to_dict()
+        sku = str(row_dict.get("producto_sku", "") or "").strip()
+        package_config = PACKAGED_TYPE_A_SKUS.get(sku)
+
+        if row_dict.get("tipo_movimiento") != "salida" or row_dict.get("bucket") != "TIPO_A" or package_config is None:
+            if row_dict.get("tipo_movimiento") == "entrada" and row_dict.get("bucket") in remaining_packaged_stock:
+                remaining_packaged_stock[row_dict["bucket"]] += float(row_dict.get("cantidad_planchas", 0.0) or 0.0)
+            adjusted_rows.append(row_dict)
+            continue
+
+        package_bucket, package_display, factor_to_plancha = package_config
+        package_qty = float(row_dict.get("cantidad_planchas", 0.0) or 0.0) / factor_to_plancha
+        available_qty = max(remaining_packaged_stock.get(package_bucket, 0.0), 0.0)
+        packaged_qty = min(package_qty, available_qty)
+        fallback_qty = package_qty - packaged_qty
+
+        if packaged_qty > 0:
+            packaged_row = row_dict.copy()
+            packaged_row["bucket"] = package_bucket
+            packaged_row["display_name"] = package_display
+            packaged_row["cantidad_planchas"] = round(packaged_qty, 4)
+            adjusted_rows.append(packaged_row)
+            remaining_packaged_stock[package_bucket] = available_qty - packaged_qty
+
+        if fallback_qty > 0:
+            fallback_row = row_dict.copy()
+            fallback_row["cantidad_planchas"] = round(fallback_qty * factor_to_plancha, 4)
+            adjusted_rows.append(fallback_row)
+
+    return pd.DataFrame(adjusted_rows, columns=movimientos.columns)
+
+
 def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     ensure_initial_stock_file()
     inicial = pd.read_csv(INICIAL_OUTPUT)
     inicial_map = {row["bucket"]: float(row["stock_inicial_planchas"]) for _, row in inicial.iterrows()}
+    movimientos = _allocate_packaged_type_a_sales(movimientos, inicial_map)
 
     display_by_bucket = {cfg.bucket: cfg.display_name for cfg in TRACKED_PRODUCTS}
     bucket_map = display_by_bucket.copy()
