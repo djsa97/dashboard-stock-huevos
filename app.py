@@ -17,6 +17,7 @@ try:
         MOVIMIENTOS_OUTPUT,
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
+        TRACKING_START_DATE,
     )
 except ModuleNotFoundError:
     from core import (  # type: ignore
@@ -29,6 +30,7 @@ except ModuleNotFoundError:
         MOVIMIENTOS_OUTPUT,
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
+        TRACKING_START_DATE,
     )
 
 
@@ -405,8 +407,23 @@ resumen = load_csv(RESUMEN_OUTPUT)
 config = load_csv(CONFIG_OUTPUT)
 stock_inicial = load_csv(INICIAL_OUTPUT)
 
+if entradas.empty and salidas.empty:
+    base_movimientos = movimientos.drop(columns=["saldo_planchas"], errors="ignore")
+elif entradas.empty:
+    base_movimientos = salidas.copy()
+elif salidas.empty:
+    base_movimientos = entradas.copy()
+else:
+    base_movimientos = pd.concat([entradas, salidas], ignore_index=True)
+
+movimientos, resumen = compute_stock_outputs(base_movimientos)
+entradas = movimientos[movimientos["tipo_movimiento"] == "entrada"].copy() if not movimientos.empty else pd.DataFrame(columns=MOV_COLUMNS)
+salidas = movimientos[movimientos["tipo_movimiento"] == "salida"].copy() if not movimientos.empty else pd.DataFrame(columns=MOV_COLUMNS)
+
 st.title("Stock de huevos")
-st.caption("Desde mayo 2026. Todo el seguimiento se muestra en planchas equivalentes.")
+st.caption(
+    f"Desde el {TRACKING_START_DATE.strftime('%d/%m/%Y')}. Todo el seguimiento se muestra en planchas equivalentes."
+)
 
 if resumen.empty:
     st.warning("Todavía no hay datos calculados. Ejecutá la tarea `A - Stock de huevos` desde ERP Launcher.")

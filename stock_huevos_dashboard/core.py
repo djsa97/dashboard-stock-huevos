@@ -14,6 +14,7 @@ MOVIMIENTOS_OUTPUT = DATA_DIR / "movimientos_stock.csv"
 RESUMEN_OUTPUT = DATA_DIR / "resumen_stock.csv"
 INICIAL_OUTPUT = DATA_DIR / "stock_inicial.csv"
 CONFIG_OUTPUT = DATA_DIR / "config_productos.csv"
+TRACKING_START_DATE = pd.Timestamp("2026-05-19")
 
 MOV_COLUMNS = [
     "fecha",
@@ -137,6 +138,10 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
     ensure_initial_stock_file()
     inicial = pd.read_csv(INICIAL_OUTPUT)
     inicial_map = {row["bucket"]: float(row["stock_inicial_planchas"]) for _, row in inicial.iterrows()}
+    if not movimientos.empty:
+        movimientos = movimientos.copy()
+        movimientos["fecha"] = pd.to_datetime(movimientos["fecha"], errors="coerce")
+        movimientos = movimientos[movimientos["fecha"].ge(TRACKING_START_DATE)].copy()
     movimientos = _allocate_packaged_type_a_sales(movimientos, inicial_map)
 
     display_by_bucket = {cfg.bucket: cfg.display_name for cfg in TRACKED_PRODUCTS}
