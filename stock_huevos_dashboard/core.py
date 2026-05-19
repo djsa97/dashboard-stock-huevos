@@ -37,6 +37,10 @@ BUCKET_ORDER = [
     "PICADO",
     "SUCIOS",
     "ROTOS",
+    "SIN_CLASIFICAR",
+    "DE_6",
+    "DE_12",
+    "DE_20",
 ]
 
 
@@ -55,6 +59,10 @@ TRACKED_PRODUCTS = [
     BucketConfig("TIPO_C", "PLANCHAS TIPO C"),
     BucketConfig("SUCIOS", "Sucios"),
     BucketConfig("ROTOS", "Rotos"),
+    BucketConfig("SIN_CLASIFICAR", "Sin clasificar"),
+    BucketConfig("DE_6", "De 6"),
+    BucketConfig("DE_12", "De 12"),
+    BucketConfig("DE_20", "De 20"),
 ]
 
 

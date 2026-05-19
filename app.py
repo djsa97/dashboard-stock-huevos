@@ -54,6 +54,10 @@ ORDER_LABELS = {
     "PICADO": "PLANCHA 30 HUEVOS PICADO",
     "SUCIOS": "Sucios",
     "ROTOS": "Rotos",
+    "SIN_CLASIFICAR": "Sin clasificar",
+    "DE_6": "De 6",
+    "DE_12": "De 12",
+    "DE_20": "De 20",
 }
 
 
