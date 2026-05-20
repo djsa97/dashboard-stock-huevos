@@ -368,25 +368,14 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["Producto", "Salidas directas"])
-    direct = df.copy()
-    if "detalle_original" not in direct.columns:
-        direct["detalle_original"] = direct["detalle"]
-    direct["cliente_consolidado"] = direct["detalle"].map(extract_client_from_detail)
-    direct["cliente_original"] = direct["detalle_original"].map(extract_client_from_detail)
-    direct = direct[
-        direct["cliente_original"].astype(str).str.upper()
-        == direct["cliente_consolidado"].astype(str).str.upper()
-    ].copy()
-    if direct.empty:
-        return pd.DataFrame(columns=["Producto", "Salidas directas"])
+        return pd.DataFrame(columns=["Producto"])
     summary = (
-        direct.groupby("display_name", as_index=False)["cantidad_planchas"]
+        df.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
-        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salidas directas"})
-        .sort_values("Salidas directas", ascending=False)
+        .rename(columns={"display_name": "Producto", "cantidad_planchas": "_orden"})
+        .sort_values("_orden", ascending=False)
+        .drop(columns=["_orden"])
     )
-    summary["Salidas directas"] = summary["Salidas directas"].map(format_qty)
     return summary
 
 
