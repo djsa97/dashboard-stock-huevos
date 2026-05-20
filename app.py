@@ -381,29 +381,31 @@ def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
     if df.empty or not product_name:
-        return pd.DataFrame(columns=["Cliente", "Pedido", "Cliente original", "Producto ERP", "Salidas"])
+        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedido", "Producto ERP", "Salidas"])
 
     subset = df[df["display_name"].astype(str) == str(product_name)].copy()
     if subset.empty:
-        return pd.DataFrame(columns=["Cliente", "Pedido", "Cliente original", "Producto ERP", "Salidas"])
+        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedido", "Producto ERP", "Salidas"])
 
     if "detalle_original" not in subset.columns:
         subset["detalle_original"] = subset["detalle"]
-    subset["cliente"] = subset["detalle"].map(extract_client_from_detail)
+    subset["cliente_consolidado"] = subset["detalle"].map(extract_client_from_detail)
     subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
     subset["pedido_original"] = subset["detalle_original"].map(extract_order_from_detail)
     detail = (
-        subset.groupby(["cliente", "pedido_original", "cliente_original", "producto_fuente"], as_index=False)["cantidad_planchas"]
+        subset.groupby(["cliente_original", "cliente_consolidado", "pedido_original", "producto_fuente"], as_index=False)["cantidad_planchas"]
         .sum()
-        .sort_values(["cantidad_planchas", "cliente"], ascending=[False, True])
+        .sort_values(["cantidad_planchas", "cliente_original"], ascending=[False, True])
     )
     rows = []
     for _, row in detail.iterrows():
+        cliente_original = row["cliente_original"] or "Cliente sin nombre"
+        cliente_consolidado = row["cliente_consolidado"] or cliente_original
         rows.append(
             {
-                "Cliente": row["cliente"] or "Cliente sin nombre",
+                "Cliente": cliente_original,
+                "Cliente consolidado": cliente_consolidado,
                 "Pedido": row["pedido_original"] or "-",
-                "Cliente original": row["cliente_original"] or row["cliente"] or "-",
                 "Producto ERP": row["producto_fuente"],
                 "Salidas": format_qty(row["cantidad_planchas"]),
             }
