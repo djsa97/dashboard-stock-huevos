@@ -368,7 +368,7 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["Producto", "Salidas"])
+        return pd.DataFrame(columns=["Producto", "Salidas directas"])
     direct = df.copy()
     if "detalle_original" not in direct.columns:
         direct["detalle_original"] = direct["detalle"]
@@ -379,24 +379,24 @@ def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
         == direct["cliente_consolidado"].astype(str).str.upper()
     ].copy()
     if direct.empty:
-        return pd.DataFrame(columns=["Producto", "Salidas"])
+        return pd.DataFrame(columns=["Producto", "Salidas directas"])
     summary = (
         direct.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
-        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salidas"})
-        .sort_values("Salidas", ascending=False)
+        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salidas directas"})
+        .sort_values("Salidas directas", ascending=False)
     )
-    summary["Salidas"] = summary["Salidas"].map(format_qty)
+    summary["Salidas directas"] = summary["Salidas directas"].map(format_qty)
     return summary
 
 
 def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
     if df.empty or not product_name:
-        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedido", "Producto ERP", "Salidas"])
+        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedidos", "Productos ERP", "Salidas"])
 
     subset = df[df["display_name"].astype(str) == str(product_name)].copy()
     if subset.empty:
-        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedido", "Producto ERP", "Salidas"])
+        return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedidos", "Productos ERP", "Salidas"])
 
     if "detalle_original" not in subset.columns:
         subset["detalle_original"] = subset["detalle"]
@@ -404,8 +404,12 @@ def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
     subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
     subset["pedido_original"] = subset["detalle_original"].map(extract_order_from_detail)
     detail = (
-        subset.groupby(["cliente_original", "cliente_consolidado", "pedido_original", "producto_fuente"], as_index=False)["cantidad_planchas"]
-        .sum()
+        subset.groupby(["cliente_original", "cliente_consolidado"], as_index=False)
+        .agg(
+            cantidad_planchas=("cantidad_planchas", "sum"),
+            pedidos=("pedido_original", lambda values: ", ".join(sorted({str(value) for value in values if str(value).strip()}))),
+            productos=("producto_fuente", lambda values: ", ".join(sorted({str(value) for value in values if str(value).strip()}))),
+        )
         .sort_values(["cantidad_planchas", "cliente_original"], ascending=[False, True])
     )
     rows = []
@@ -416,8 +420,8 @@ def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
             {
                 "Cliente": cliente_original,
                 "Cliente consolidado": cliente_consolidado,
-                "Pedido": row["pedido_original"] or "-",
-                "Producto ERP": row["producto_fuente"],
+                "Pedidos": row["pedidos"] or "-",
+                "Productos ERP": row["productos"] or "-",
                 "Salidas": format_qty(row["cantidad_planchas"]),
             }
         )
