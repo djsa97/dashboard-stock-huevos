@@ -302,6 +302,12 @@ def build_pivot(df: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
     return pivot
 
 
+def dataframe_to_tsv(df: pd.DataFrame) -> str:
+    if df.empty:
+        return ""
+    return df.to_csv(sep="\t", index=False, lineterminator="\n")
+
+
 def prepare_client_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Cliente", "Salidas en planchas"])
@@ -557,6 +563,12 @@ else:
                 on_select="rerun",
                 selection_mode="single-row",
             )
+            st.text_area(
+                "Copiar resumen",
+                value=dataframe_to_tsv(resumen_clientes),
+                height=140,
+                help="Hacé clic acá, seleccioná todo y copiá. Se pega como columnas en Sheets/Excel.",
+            )
             cliente_default = resumen_clientes.iloc[0]["Cliente"]
             selected_rows = event.selection.rows if hasattr(event, "selection") else []
             cliente_sel = cliente_default
@@ -570,6 +582,12 @@ else:
             st.markdown(f"**Detalle de salidas en planchas: {cliente_sel}**")
             detalle_cliente = prepare_client_detail(salidas_dia, cliente_sel)
             st.dataframe(detalle_cliente, width="stretch", hide_index=True)
+            st.text_area(
+                "Copiar detalle",
+                value=dataframe_to_tsv(detalle_cliente),
+                height=140,
+                help="Hacé clic acá, seleccioná todo y copiá. Se pega como columnas en Sheets/Excel.",
+            )
     else:
         st.info("No hay salidas registradas todavía.")
     st.markdown("</div>", unsafe_allow_html=True)
