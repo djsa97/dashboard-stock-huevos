@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -477,8 +478,46 @@ if st.session_state["stock_mode"] == "entrada":
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
     st.subheader("Vista 1: Entradas")
     st.markdown('<div class="small-note">Producción diaria en planchas equivalentes.</div>', unsafe_allow_html=True)
-    entrada_pivot = build_pivot(entradas, ordered_labels)
-    st.dataframe(entrada_pivot, width="stretch", hide_index=True)
+    fechas_entradas = (
+        pd.to_datetime(entradas["fecha"], errors="coerce").dropna().dt.date.sort_values().unique().tolist()
+        if not entradas.empty
+        else []
+    )
+    if fechas_entradas:
+        fecha_min = fechas_entradas[0]
+        fecha_max = fechas_entradas[-1]
+        entrada_fecha_sel = st.date_input(
+            "Fechas",
+            value=(fecha_max, fecha_max),
+            min_value=fecha_min,
+            max_value=fecha_max,
+            help="Elegí una fecha o un rango para ver las entradas.",
+        )
+        if isinstance(entrada_fecha_sel, tuple):
+            fecha_desde = entrada_fecha_sel[0] if len(entrada_fecha_sel) >= 1 else fecha_max
+            fecha_hasta = entrada_fecha_sel[1] if len(entrada_fecha_sel) >= 2 else fecha_desde
+        else:
+            fecha_desde = entrada_fecha_sel
+            fecha_hasta = entrada_fecha_sel
+        if fecha_desde is None:
+            fecha_desde = fecha_max
+        if fecha_hasta is None:
+            fecha_hasta = fecha_desde
+        if isinstance(fecha_desde, date) and isinstance(fecha_hasta, date) and fecha_desde > fecha_hasta:
+            fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+
+        entradas_rango = entradas.copy()
+        entradas_rango["fecha_dt"] = pd.to_datetime(entradas_rango["fecha"], errors="coerce").dt.date
+        entradas_rango = entradas_rango[
+            entradas_rango["fecha_dt"].between(fecha_desde, fecha_hasta, inclusive="both")
+        ].drop(columns=["fecha_dt"])
+        entrada_pivot = build_pivot(entradas_rango, ordered_labels)
+        if entrada_pivot.empty:
+            st.info("No hay entradas para las fechas seleccionadas.")
+        else:
+            st.dataframe(entrada_pivot, width="stretch", hide_index=True)
+    else:
+        st.info("No hay entradas registradas todavía.")
     st.markdown("</div>", unsafe_allow_html=True)
 else:
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
