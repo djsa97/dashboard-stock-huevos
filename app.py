@@ -522,9 +522,12 @@ if st.session_state["stock_mode"] == "entrada":
 else:
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
     st.subheader("Vista 2: Salidas")
+    salidas_con_fecha = salidas.copy()
+    if not salidas_con_fecha.empty:
+        salidas_con_fecha["fecha_dt"] = pd.to_datetime(salidas_con_fecha["fecha"], errors="coerce").dt.date
     fechas_salidas = (
-        pd.to_datetime(salidas["fecha"], errors="coerce").dropna().dt.date.sort_values().unique().tolist()
-        if not salidas.empty
+        salidas_con_fecha["fecha_dt"].dropna().sort_values().unique().tolist()
+        if not salidas_con_fecha.empty
         else []
     )
     if fechas_salidas:
@@ -536,8 +539,9 @@ else:
             default=[default_label],
             help="Podés seleccionar una o varias fechas para ver las salidas juntas.",
         )
-        fechas_iso_sel = [fecha_options[label].isoformat() for label in fechas_labels_sel]
-        salidas_dia = salidas[salidas["fecha"].isin(fechas_iso_sel)].copy()
+        fechas_sel = [fecha_options[label] for label in fechas_labels_sel]
+        salidas_dia = salidas_con_fecha[salidas_con_fecha["fecha_dt"].isin(fechas_sel)].copy()
+        salidas_dia = salidas_dia.drop(columns=["fecha_dt"])
         resumen_clientes = prepare_client_summary(salidas_dia)
         st.markdown(
             '<div class="small-note">Al seleccionar una o varias fechas, vas a ver todos los clientes que tuvieron salidas. Si un cliente fue consolidado como REPARTO, DIEGO SOLJANCIC u otro, arriba se ve el bucket consolidado y en el detalle solo se ven los nombres originales absorbidos.</div>',
