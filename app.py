@@ -366,6 +366,51 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["Producto", "Salidas"])
+    summary = (
+        df.groupby("display_name", as_index=False)["cantidad_planchas"]
+        .sum()
+        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salidas"})
+        .sort_values("Salidas", ascending=False)
+    )
+    summary["Salidas"] = summary["Salidas"].map(format_qty)
+    return summary
+
+
+def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
+    if df.empty or not product_name:
+        return pd.DataFrame(columns=["Cliente", "Pedido", "Cliente original", "Producto ERP", "Salidas"])
+
+    subset = df[df["display_name"].astype(str) == str(product_name)].copy()
+    if subset.empty:
+        return pd.DataFrame(columns=["Cliente", "Pedido", "Cliente original", "Producto ERP", "Salidas"])
+
+    if "detalle_original" not in subset.columns:
+        subset["detalle_original"] = subset["detalle"]
+    subset["cliente"] = subset["detalle"].map(extract_client_from_detail)
+    subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
+    subset["pedido_original"] = subset["detalle_original"].map(extract_order_from_detail)
+    detail = (
+        subset.groupby(["cliente", "pedido_original", "cliente_original", "producto_fuente"], as_index=False)["cantidad_planchas"]
+        .sum()
+        .sort_values(["cantidad_planchas", "cliente"], ascending=[False, True])
+    )
+    rows = []
+    for _, row in detail.iterrows():
+        rows.append(
+            {
+                "Cliente": row["cliente"] or "Cliente sin nombre",
+                "Pedido": row["pedido_original"] or "-",
+                "Cliente original": row["cliente_original"] or row["cliente"] or "-",
+                "Producto ERP": row["producto_fuente"],
+                "Salidas": format_qty(row["cantidad_planchas"]),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
     if df.empty or not client_name:
         return pd.DataFrame(columns=["Fecha", "Pedido", "Producto", "Salidas en planchas"])
@@ -547,13 +592,20 @@ else:
         salidas_dia = salidas_con_fecha[salidas_con_fecha["fecha_dt"].isin(fechas_sel)].copy()
         salidas_dia = salidas_dia.drop(columns=["fecha_dt"])
         resumen_clientes = prepare_client_summary(salidas_dia)
+        resumen_productos = prepare_product_summary(salidas_dia)
         st.markdown(
             '<div class="small-note">Al seleccionar una o varias fechas, vas a ver todos los clientes que tuvieron salidas. Si un cliente fue consolidado como REPARTO, DIEGO SOLJANCIC u otro, arriba se ve el bucket consolidado y en el detalle solo se ven los nombres originales absorbidos.</div>',
             unsafe_allow_html=True,
         )
-        if resumen_clientes.empty:
+        salida_group_mode = st.radio(
+            "Agrupar salidas",
+            ["Por cliente", "Por producto"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        if salida_group_mode == "Por cliente" and resumen_clientes.empty:
             st.info("No hay salidas para las fechas seleccionadas.")
-        else:
+        elif salida_group_mode == "Por cliente":
             event = st.dataframe(
                 resumen_clientes,
                 width="stretch",
@@ -574,6 +626,29 @@ else:
             st.markdown(f"**Detalle de salidas en planchas: {cliente_sel}**")
             detalle_cliente = prepare_client_detail(salidas_dia, cliente_sel)
             st.dataframe(detalle_cliente, width="stretch", hide_index=True)
+        elif resumen_productos.empty:
+            st.info("No hay salidas para las fechas seleccionadas.")
+        else:
+            event = st.dataframe(
+                resumen_productos,
+                width="stretch",
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+            )
+            producto_default = resumen_productos.iloc[0]["Producto"]
+            selected_rows = event.selection.rows if hasattr(event, "selection") else []
+            producto_sel = producto_default
+            if selected_rows:
+                producto_sel = resumen_productos.iloc[selected_rows[0]]["Producto"]
+            producto_sel = st.selectbox(
+                "Producto",
+                resumen_productos["Producto"].tolist(),
+                index=resumen_productos["Producto"].tolist().index(producto_sel),
+            )
+            st.markdown(f"**Detalle de clientes para: {producto_sel}**")
+            detalle_producto = prepare_product_detail(salidas_dia, producto_sel)
+            st.dataframe(detalle_producto, width="stretch", hide_index=True)
     else:
         st.info("No hay salidas registradas todavía.")
     st.markdown("</div>", unsafe_allow_html=True)
