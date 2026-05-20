@@ -419,7 +419,11 @@ else:
 
 movimientos, resumen = compute_stock_outputs(base_movimientos)
 entradas = movimientos[movimientos["tipo_movimiento"] == "entrada"].copy() if not movimientos.empty else pd.DataFrame(columns=MOV_COLUMNS)
-salidas = movimientos[movimientos["tipo_movimiento"] == "salida"].copy() if not movimientos.empty else pd.DataFrame(columns=MOV_COLUMNS)
+salidas = (
+    movimientos[(movimientos["tipo_movimiento"] == "salida") & (movimientos["origen"] == "ERP Pedidos")].copy()
+    if not movimientos.empty
+    else pd.DataFrame(columns=MOV_COLUMNS)
+)
 
 st.title("Stock de huevos")
 st.caption(
@@ -506,7 +510,7 @@ if st.session_state["stock_mode"] == "entrada":
         if isinstance(fecha_desde, date) and isinstance(fecha_hasta, date) and fecha_desde > fecha_hasta:
             fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
 
-        entradas_rango = entradas.copy()
+        entradas_rango = entradas[entradas["tipo_movimiento"] == "entrada"].copy()
         entradas_rango["fecha_dt"] = pd.to_datetime(entradas_rango["fecha"], errors="coerce").dt.date
         entradas_rango = entradas_rango[
             entradas_rango["fecha_dt"].between(fecha_desde, fecha_hasta, inclusive="both")

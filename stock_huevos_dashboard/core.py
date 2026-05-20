@@ -73,6 +73,10 @@ PACKAGED_TYPE_A_SKUS = {
 }
 
 
+def _normalize_sku(value: str) -> str:
+    return " ".join(str(value or "").upper().replace(".", " ").split())
+
+
 def ensure_initial_stock_file() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if INICIAL_OUTPUT.exists():
@@ -104,7 +108,10 @@ def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict
     for _, row in movimientos_sorted.iterrows():
         row_dict = row.to_dict()
         sku = str(row_dict.get("producto_sku", "") or "").strip()
-        package_config = PACKAGED_TYPE_A_SKUS.get(sku)
+        package_config = next(
+            (config for sku_name, config in PACKAGED_TYPE_A_SKUS.items() if _normalize_sku(sku_name) == _normalize_sku(sku)),
+            None,
+        )
 
         if row_dict.get("tipo_movimiento") != "salida" or row_dict.get("bucket") != "TIPO_A" or package_config is None:
             if row_dict.get("tipo_movimiento") == "entrada" and row_dict.get("bucket") in remaining_packaged_stock:
