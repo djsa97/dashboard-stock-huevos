@@ -1,70 +1,13 @@
 fecha,tipo_movimiento,bucket,display_name,producto_fuente,producto_sku,cantidad_planchas,detalle,detalle_original,origen
-2026-05-02,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,140.0,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,47.0,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,19.0,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.5333,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,1.0,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,SUCIOS,Sucios,Huevos Sucios,,1.7667,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,ROTOS,Rotos,Rotos,,1.5,Galpón 3/213,Galpón 3/213,Google Sheet Producción
-2026-05-02,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,160.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,51.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,19.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,2.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,SUCIOS,Sucios,Huevos Sucios,,10.4333,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,ROTOS,Rotos,Rotos,,2.0,Galpón 1/247,Galpón 1/247,Google Sheet Producción
-2026-05-02,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,146.0,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,51.0,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,12.0,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.6,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,1.0,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,SUCIOS,Sucios,Huevos Sucios,,4.0,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,ROTOS,Rotos,Rotos,,1.7333,Galpón 3/220,Galpón 3/220,Google Sheet Producción
-2026-05-02,entrada,ROTOS,Rotos,Rotos,,15.5333,Galpón nan,Galpón nan,Google Sheet Producción
-2026-05-04,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,191.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,57.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,20.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.6,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,2.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,SUCIOS,Sucios,Huevos Sucios,,13.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,ROTOS,Rotos,Rotos,,2.0,Galpón 1/290,Galpón 1/290,Google Sheet Producción
-2026-05-04,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,539.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,13.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,586.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,13.3667,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,46.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,SUCIOS,Sucios,Huevos Sucios,,2.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-04,entrada,ROTOS,Rotos,Rotos,,2.0,"Galpón 7/1,205","Galpón 7/1,205",Google Sheet Producción
-2026-05-05,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,159.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,45.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,19.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.4667,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,1.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,SUCIOS,Sucios,Huevos Sucios,,1.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,ROTOS,Rotos,Rotos,,2.0,Galpón 1/230,Galpón 1/230,Google Sheet Producción
-2026-05-05,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,278.0,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-05,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,19.0,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-05,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,104.0,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-05,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,7.7333,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-05,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,10.0,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-05,entrada,ROTOS,Rotos,Rotos,,1.2333,Galpón 6/420,Galpón 6/420,Google Sheet Producción
-2026-05-06,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,311.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,8.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,166.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,10.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,8.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,SUCIOS,Sucios,Huevos Sucios,,9.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,ROTOS,Rotos,Rotos,,2.0,Galpón 6/520,Galpón 6/520,Google Sheet Producción
-2026-05-06,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,351.0,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,93.0,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,46.0,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,5.8667,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,4.0,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,ROTOS,Rotos,Rotos,,5.7333,Galpón 1/510,Galpón 1/510,Google Sheet Producción
-2026-05-06,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,122.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,13.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,10.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,3.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,1.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,ROTOS,Rotos,Rotos,,1.0,Galpón 3/150,Galpón 3/150,Google Sheet Producción
-2026-05-06,entrada,ROTOS,Rotos,Rotos,,1.6333,Galpón nan,Galpón nan,Google Sheet Producción
+2026-05-19,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,475.0,Galpón 3/590,Galpón 3/590,Google Sheet Producción
+2026-05-19,entrada,SUPER,PLANCHA 30 SUPER,Tipo S,,42.0,Galpón 3/590,Galpón 3/590,Google Sheet Producción
+2026-05-19,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,61.0,Galpón 3/590,Galpón 3/590,Google Sheet Producción
+2026-05-19,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,6.3667,Galpón 3/590,Galpón 3/590,Google Sheet Producción
+2026-05-19,entrada,ROTOS,Rotos,Rotos,,5.0,Galpón 3/590,Galpón 3/590,Google Sheet Producción
+2026-05-19,entrada,TIPO_A,Plancha de 30 Tipo A,Tipo A,,38.0,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,TIPO_B,PLANCHA 30 TIPO B,Tipo B,,27.0,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,TIPO_C,PLANCHAS TIPO C,Picado,,0.5,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,PICADO,PLANCHA 30 HUEVOS PICADO,Tipo C,,1.0,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,SUCIOS,Sucios,Huevos Sucios,,3.6667,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,ROTOS,Rotos,Rotos,,0.1,Galpón 7/70,Galpón 7/70,Google Sheet Producción
+2026-05-19,entrada,ROTOS,Rotos,Rotos,,6.0,Producción,Producción,Google Sheet Producción
