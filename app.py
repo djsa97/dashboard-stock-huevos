@@ -377,8 +377,15 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Producto", "Salida real"])
+    direct = with_client_columns(df)
+    direct = direct[
+        direct["cliente_original"].astype(str).str.upper()
+        == direct["cliente_consolidado"].astype(str).str.upper()
+    ].copy()
+    if direct.empty:
+        return pd.DataFrame(columns=["Producto", "Salida real"])
     summary = (
-        df.groupby("display_name", as_index=False)["cantidad_planchas"]
+        direct.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
         .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida real"})
         .sort_values("Salida real", ascending=False)
@@ -429,7 +436,12 @@ def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
     if subset.empty:
         return 0.0, 0.0
     total = float(subset["cantidad_planchas"].sum())
-    return total, total
+    direct = with_client_columns(subset)
+    direct = direct[
+        direct["cliente_original"].astype(str).str.upper()
+        == direct["cliente_consolidado"].astype(str).str.upper()
+    ]
+    return total, float(direct["cantidad_planchas"].sum())
 
 
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
