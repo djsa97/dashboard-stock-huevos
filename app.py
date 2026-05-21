@@ -63,9 +63,6 @@ ORDER_LABELS = {
     "DE_20": "De 20",
 }
 
-REAL_SALE_ORIGINAL_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
-
-
 st.set_page_config(
     page_title="Stock de huevos",
     page_icon="",
@@ -233,13 +230,6 @@ def with_client_columns(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def real_sale_rows(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return df.copy()
-    result = with_client_columns(df)
-    return result[result["cliente_original"].astype(str).str.upper().isin(REAL_SALE_ORIGINAL_CLIENTS)].copy()
-
-
 def render_stock_cards(resumen: pd.DataFrame, ordered_labels: list[str]) -> None:
     values = {row["display_name"]: row["stock_actual_planchas"] for _, row in resumen.iterrows()}
     cards_per_row = 8
@@ -387,11 +377,8 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Producto", "Salida real"])
-    real_rows = real_sale_rows(df)
-    if real_rows.empty:
-        return pd.DataFrame(columns=["Producto", "Salida real"])
     summary = (
-        real_rows.groupby("display_name", as_index=False)["cantidad_planchas"]
+        df.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
         .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida real"})
         .sort_values("Salida real", ascending=False)
@@ -442,8 +429,7 @@ def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
     if subset.empty:
         return 0.0, 0.0
     total = float(subset["cantidad_planchas"].sum())
-    real_rows = real_sale_rows(subset)
-    return total, float(real_rows["cantidad_planchas"].sum())
+    return total, total
 
 
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
