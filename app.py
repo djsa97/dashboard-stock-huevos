@@ -20,7 +20,6 @@ try:
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
         TRACKING_START_DATE,
-        TRANSFERS_OUTPUT,
     )
 except ModuleNotFoundError:
     from core import (  # type: ignore
@@ -34,12 +33,12 @@ except ModuleNotFoundError:
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
         TRACKING_START_DATE,
-        TRANSFERS_OUTPUT,
     )
 
 
 ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
 LEGACY_ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
+TRANSFERS_OUTPUT = CONFIG_OUTPUT.parent / "ajustes_traspaso.csv"
 TRANSFER_COLUMNS = ["fecha", "bucket_origen", "bucket_destino", "cantidad_planchas", "motivo"]
 
 
