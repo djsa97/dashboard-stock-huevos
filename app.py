@@ -63,9 +63,6 @@ ORDER_LABELS = {
     "DE_20": "De 20",
 }
 
-REAL_SALE_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
-
-
 st.set_page_config(
     page_title="Stock de huevos",
     page_icon="",
@@ -387,8 +384,8 @@ def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
         .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida total"})
     )
     real_rows = enriched[
-        (enriched["cliente_original"].astype(str).str.upper() == enriched["cliente_consolidado"].astype(str).str.upper())
-        & enriched["cliente_original"].astype(str).str.upper().isin(REAL_SALE_CLIENTS)
+        enriched["cliente_original"].astype(str).str.upper()
+        == enriched["cliente_consolidado"].astype(str).str.upper()
     ].copy()
     if real_rows.empty:
         total_summary["Salida real"] = 0.0
@@ -450,8 +447,8 @@ def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
     enriched = with_client_columns(subset)
     total = float(enriched["cantidad_planchas"].sum())
     real_rows = enriched[
-        (enriched["cliente_original"].astype(str).str.upper() == enriched["cliente_consolidado"].astype(str).str.upper())
-        & enriched["cliente_original"].astype(str).str.upper().isin(REAL_SALE_CLIENTS)
+        enriched["cliente_original"].astype(str).str.upper()
+        == enriched["cliente_consolidado"].astype(str).str.upper()
     ]
     return total, float(real_rows["cantidad_planchas"].sum())
 

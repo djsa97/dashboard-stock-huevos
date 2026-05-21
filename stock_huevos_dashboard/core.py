@@ -72,9 +72,6 @@ PACKAGED_TYPE_A_SKUS = {
     "PLANCHAS 20 HUEVOS TIPO A COD.7848000130074": ("DE_20", "De 20", 20 / 30),
 }
 
-REAL_STOCK_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
-
-
 def _normalize_sku(value: str) -> str:
     return " ".join(str(value or "").upper().replace(".", " ").split())
 
@@ -95,7 +92,7 @@ def _is_stock_effective(row: pd.Series) -> bool:
     detalle_original = row.get("detalle_original", detalle)
     cliente_consolidado = _extract_client_from_detail(detalle).upper()
     cliente_original = _extract_client_from_detail(detalle_original).upper()
-    return cliente_original == cliente_consolidado and cliente_original in REAL_STOCK_CLIENTS
+    return cliente_original == cliente_consolidado
 
 
 def ensure_initial_stock_file() -> None:
