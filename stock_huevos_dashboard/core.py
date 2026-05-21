@@ -72,9 +72,30 @@ PACKAGED_TYPE_A_SKUS = {
     "PLANCHAS 20 HUEVOS TIPO A COD.7848000130074": ("DE_20", "De 20", 20 / 30),
 }
 
+REAL_STOCK_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
+
 
 def _normalize_sku(value: str) -> str:
     return " ".join(str(value or "").upper().replace(".", " ").split())
+
+
+def _extract_client_from_detail(detail: str) -> str:
+    text = str(detail or "").strip()
+    if "·" in text:
+        return text.split("·", 1)[1].strip()
+    return text
+
+
+def _is_stock_effective(row: pd.Series) -> bool:
+    if row.get("tipo_movimiento") != "salida":
+        return True
+    if row.get("origen") != "ERP Pedidos":
+        return True
+    detalle = row.get("detalle", "")
+    detalle_original = row.get("detalle_original", detalle)
+    cliente_consolidado = _extract_client_from_detail(detalle).upper()
+    cliente_original = _extract_client_from_detail(detalle_original).upper()
+    return cliente_original == cliente_consolidado and cliente_original in REAL_STOCK_CLIENTS
 
 
 def ensure_initial_stock_file() -> None:
@@ -175,11 +196,14 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         subset = movimientos_sorted[movimientos_sorted["bucket"] == bucket].copy()
         saldo = float(inicial_map.get(bucket, 0.0))
         entradas = float(subset.loc[subset["tipo_movimiento"] == "entrada", "cantidad_planchas"].sum())
-        salidas = float(subset.loc[subset["tipo_movimiento"] == "salida", "cantidad_planchas"].sum())
+        stock_effective = subset.apply(_is_stock_effective, axis=1) if not subset.empty else pd.Series(dtype=bool)
+        salidas = float(
+            subset.loc[(subset["tipo_movimiento"] == "salida") & stock_effective, "cantidad_planchas"].sum()
+        )
         for _, row in subset.iterrows():
             if row["tipo_movimiento"] == "entrada":
                 saldo += float(row["cantidad_planchas"])
-            else:
+            elif _is_stock_effective(row):
                 saldo -= float(row["cantidad_planchas"])
             enriched = row.to_dict()
             enriched["saldo_planchas"] = round(saldo, 4)
