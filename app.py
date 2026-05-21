@@ -237,7 +237,17 @@ def parse_adjustment_expression(value) -> float:
     text = str(value).strip()
     if not text:
         return 0.0
-    normalized = text.replace(",", ".").replace(" ", "")
+    normalized = (
+        text.replace("\u2212", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\u00a0", "")
+        .replace(" ", "")
+    )
+    if normalized.startswith("="):
+        normalized = normalized[1:]
+    normalized = re.sub(r"(?<=\d)\.(?=\d{3}(?:\D|$))", "", normalized)
+    normalized = normalized.replace(",", ".")
     pattern = r"[+-]?\d+(?:\.\d+)?(?:[+-]\d+(?:\.\d+)?)*"
     if not re.fullmatch(pattern, normalized):
         raise ValueError(text)
@@ -384,18 +394,23 @@ def preview_adjusted_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     adjusted_values: list[str] = []
     errors: list[str] = []
     for _, row in result.iterrows():
-        raw_real = parse_adjustment_expression(row.get("Salida real", 0.0))
+        product = str(row.get("Producto", ""))
+        try:
+            raw_real = parse_adjustment_expression(row.get("Salida real", 0.0))
+        except ValueError:
+            raw_real = 0.0
+            errors.append(f"{product}: salida real {row.get('Salida real', '')}")
         raw_adjustment = row.get("Ajuste salida", 0.0)
         try:
             adjustment = parse_adjustment_expression(raw_adjustment)
             adjusted_values.append(format_qty(raw_real + adjustment))
         except ValueError:
-            errors.append(str(raw_adjustment))
+            errors.append(f"{product}: ajuste {raw_adjustment}")
             adjusted_values.append("")
 
     result["Salida ajustada"] = adjusted_values
     if errors:
-        st.warning("Hay ajustes con fórmula inválida; corregilos antes de guardar.")
+        st.warning("Hay ajustes con fórmula inválida: " + "; ".join(errors))
     return result
 
 
@@ -464,6 +479,9 @@ def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
     result = df.copy()
     draft = st.session_state.get("salida_adjustment_draft", {})
     if isinstance(draft, dict) and "Producto" in result.columns and "Ajuste salida" in result.columns:
+        valid_products = set(result["Producto"].astype(str))
+        draft = {product: value for product, value in draft.items() if product in valid_products}
+        st.session_state["salida_adjustment_draft"] = draft
         result["Ajuste salida"] = result.apply(
             lambda row: draft.get(str(row["Producto"]), row["Ajuste salida"]),
             axis=1,
