@@ -398,6 +398,39 @@ def preview_adjusted_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def preview_stock_summary_with_adjustments(resumen: pd.DataFrame, edited: pd.DataFrame) -> pd.DataFrame:
+    if resumen.empty or edited.empty:
+        return resumen
+    result = resumen.copy()
+    if ADJUSTMENT_COLUMN not in result.columns:
+        result[ADJUSTMENT_COLUMN] = 0.0
+
+    for _, row in edited.iterrows():
+        product = str(row.get("Producto", ""))
+        if not product:
+            continue
+        try:
+            new_adjustment = parse_adjustment_expression(row.get("Ajuste salida", 0.0))
+        except ValueError:
+            continue
+
+        mask = result["display_name"].astype(str) == product
+        if not mask.any():
+            continue
+        current_adjustment = pd.to_numeric(result.loc[mask, ADJUSTMENT_COLUMN], errors="coerce").fillna(0.0)
+        current_salidas = pd.to_numeric(result.loc[mask, "salidas_planchas"], errors="coerce").fillna(0.0)
+        salidas_base = current_salidas - current_adjustment
+        result.loc[mask, ADJUSTMENT_COLUMN] = new_adjustment
+        result.loc[mask, "salidas_planchas"] = salidas_base + new_adjustment
+        result.loc[mask, "stock_actual_planchas"] = (
+            pd.to_numeric(result.loc[mask, "stock_inicial_planchas"], errors="coerce").fillna(0.0)
+            + pd.to_numeric(result.loc[mask, "entradas_planchas"], errors="coerce").fillna(0.0)
+            - pd.to_numeric(result.loc[mask, "salidas_planchas"], errors="coerce").fillna(0.0)
+        )
+
+    return result
+
+
 def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
     result = df.copy()
     state = st.session_state.get(key, {})
@@ -651,6 +684,7 @@ if resumen.empty:
 
 stock_inicial = align_initial_stock(stock_inicial, resumen)
 ordered_labels = ordered_labels_from_summary(resumen)
+resumen_stock_preview = resumen.copy()
 
 with st.sidebar:
     st.subheader("Stock inicial")
@@ -680,7 +714,7 @@ with st.sidebar:
 
 
 st.subheader("Vista de stock")
-render_stock_cards(resumen, ordered_labels)
+stock_cards_placeholder = st.empty()
 
 left_btn, right_btn = st.columns([1, 1])
 if "stock_mode" not in st.session_state:
@@ -823,6 +857,7 @@ else:
                     "Salida ajustada": st.column_config.TextColumn("Salida ajustada", disabled=True),
                 },
             )
+            resumen_stock_preview = preview_stock_summary_with_adjustments(resumen, edited_ajustes)
             if st.button("Guardar ajustes de salida", width="stretch"):
                 errors = save_salida_adjustments(edited_ajustes, stock_inicial)
                 if errors:
@@ -847,6 +882,10 @@ else:
     else:
         st.info("No hay salidas registradas todavía.")
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+with stock_cards_placeholder.container():
+    render_stock_cards(resumen_stock_preview, ordered_labels)
 
 
 with st.expander("Ver movimientos consolidados"):
