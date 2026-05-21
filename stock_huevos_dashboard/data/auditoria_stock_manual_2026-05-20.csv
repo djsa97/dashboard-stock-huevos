@@ -1,5 +1,5 @@
 bucket,producto,stock_antes_ajuste,conteo_hoja_20_05,ajuste_salida_manual,stock_final,nota
-TIPO_A,Plancha de 30 Tipo A,157.5334,241.0,-83.4666,241.0,Ajuste manual segun hoja 20/05/2026
+TIPO_A,Plancha de 30 Tipo A,157.5334,211.0,-53.4666,211.0,Correccion manual solicitada: Tipo A = 211
 SUPER,PLANCHA 30 SUPER,2.0,54.0,-52.0,54.0,Ajuste manual segun hoja 20/05/2026
 TIPO_B,PLANCHA 30 TIPO B,-2058.0,210.22,-2268.22,210.22,Ajuste manual segun hoja 20/05/2026
 JUMBO,PLANCHAS 30 JUMBO,12.0,15.22,-3.22,15.22,Ajuste manual segun hoja 20/05/2026
