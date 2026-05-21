@@ -9,7 +9,6 @@ from pandas.errors import EmptyDataError
 
 try:
     from stock_huevos_dashboard.core import (
-        ADJUSTMENT_COLUMN,
         BUCKET_ORDER,
         CONFIG_OUTPUT,
         compute_stock_outputs,
@@ -23,7 +22,6 @@ try:
     )
 except ModuleNotFoundError:
     from core import (  # type: ignore
-        ADJUSTMENT_COLUMN,
         BUCKET_ORDER,
         CONFIG_OUTPUT,
         compute_stock_outputs,
@@ -35,6 +33,9 @@ except ModuleNotFoundError:
         SALIDAS_OUTPUT,
         TRACKING_START_DATE,
     )
+
+
+ADJUSTMENT_COLUMN = "ajuste_manual_planchas"
 
 
 PALETTE = {
