@@ -375,6 +375,29 @@ def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -
     return []
 
 
+def preview_adjusted_product_summary(df: pd.DataFrame) -> pd.DataFrame:
+    result = df.copy()
+    if result.empty or "Ajuste salida" not in result.columns:
+        return result
+
+    adjusted_values: list[str] = []
+    errors: list[str] = []
+    for _, row in result.iterrows():
+        raw_real = parse_adjustment_expression(row.get("Salida real", 0.0))
+        raw_adjustment = row.get("Ajuste salida", 0.0)
+        try:
+            adjustment = parse_adjustment_expression(raw_adjustment)
+            adjusted_values.append(format_qty(raw_real + adjustment))
+        except ValueError:
+            errors.append(str(raw_adjustment))
+            adjusted_values.append("")
+
+    result["Salida ajustada"] = adjusted_values
+    if errors:
+        st.warning("Hay ajustes con fórmula inválida; corregilos antes de guardar.")
+    return result
+
+
 def build_pivot(df: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Fecha", *ordered_labels])
@@ -765,6 +788,7 @@ else:
             resumen_productos_editor["Ajuste salida"] = (
                 resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
             )
+            resumen_productos_editor = preview_adjusted_product_summary(resumen_productos_editor)
             edited_ajustes = st.data_editor(
                 resumen_productos_editor,
                 width="stretch",
@@ -775,6 +799,7 @@ else:
                     "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
                     "Salida real": st.column_config.TextColumn("Salida real", disabled=True),
                     "Ajuste salida": st.column_config.TextColumn("Ajuste salida"),
+                    "Salida ajustada": st.column_config.TextColumn("Salida ajustada", disabled=True),
                 },
             )
             if st.button("Guardar ajustes de salida", width="stretch"):
