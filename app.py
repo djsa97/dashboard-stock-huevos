@@ -398,6 +398,23 @@ def preview_adjusted_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
+    result = df.copy()
+    state = st.session_state.get(key, {})
+    edited_rows = state.get("edited_rows", {}) if isinstance(state, dict) else {}
+    for row_index, changes in edited_rows.items():
+        try:
+            index = int(row_index)
+        except (TypeError, ValueError):
+            continue
+        if index not in result.index or not isinstance(changes, dict):
+            continue
+        for column, value in changes.items():
+            if column in result.columns:
+                result.at[index, column] = value
+    return result
+
+
 def build_pivot(df: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Fecha", *ordered_labels])
@@ -787,6 +804,10 @@ else:
             resumen_productos_editor = resumen_productos.copy()
             resumen_productos_editor["Ajuste salida"] = (
                 resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
+            )
+            resumen_productos_editor = apply_editor_pending_values(
+                resumen_productos_editor,
+                "salida_producto_ajustes",
             )
             resumen_productos_editor = preview_adjusted_product_summary(resumen_productos_editor)
             edited_ajustes = st.data_editor(
