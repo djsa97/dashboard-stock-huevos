@@ -398,6 +398,34 @@ def preview_adjusted_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def add_adjustable_stock_rows(summary: pd.DataFrame, resumen: pd.DataFrame) -> pd.DataFrame:
+    result = summary.copy()
+    existing = set(result["Producto"].astype(str)) if "Producto" in result.columns else set()
+    extra_rows: list[dict] = []
+    if resumen.empty:
+        return result
+
+    for _, row in resumen.iterrows():
+        product = str(row.get("display_name", ""))
+        if not product or product in existing:
+            continue
+        salidas = float(row.get("salidas_planchas", 0.0) or 0.0)
+        ajuste = float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0)
+        if abs(salidas) < 1e-9 and abs(ajuste) < 1e-9:
+            continue
+        extra_rows.append(
+            {
+                "Producto": product,
+                "Salida total": format_qty(salidas),
+                "Salida real": format_qty(salidas),
+            }
+        )
+
+    if not extra_rows:
+        return result.reset_index(drop=True)
+    return pd.concat([result, pd.DataFrame(extra_rows)], ignore_index=True)
+
+
 def preview_stock_summary_with_adjustments(resumen: pd.DataFrame, edited: pd.DataFrame) -> pd.DataFrame:
     if resumen.empty or edited.empty:
         return resumen
@@ -836,7 +864,7 @@ else:
         else:
             adjustment_editor_key = "salida_producto_ajustes_v3"
             ajustes_salida = salida_adjustment_by_product(stock_inicial)
-            resumen_productos_editor = resumen_productos.reset_index(drop=True).copy()
+            resumen_productos_editor = add_adjustable_stock_rows(resumen_productos, resumen).reset_index(drop=True).copy()
             resumen_productos_editor["Ajuste salida"] = (
                 resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
             )
