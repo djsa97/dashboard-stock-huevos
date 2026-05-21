@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+import re
 
 import pandas as pd
 import streamlit as st
@@ -214,6 +215,34 @@ def format_qty(value) -> str:
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def format_adjustment_input(value) -> str:
+    if value is None or pd.isna(value):
+        return "0"
+    value = float(value)
+    if abs(value - round(value)) < 1e-9:
+        return str(int(round(value)))
+    return f"{value:.4f}".rstrip("0").rstrip(".")
+
+
+def parse_adjustment_expression(value) -> float:
+    if value is None or pd.isna(value):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return round(float(value), 4)
+
+    text = str(value).strip()
+    if not text:
+        return 0.0
+    normalized = text.replace(",", ".").replace(" ", "")
+    pattern = r"[+-]?\d+(?:\.\d+)?(?:[+-]\d+(?:\.\d+)?)*"
+    if not re.fullmatch(pattern, normalized):
+        raise ValueError(text)
+    if normalized[0] not in "+-":
+        normalized = f"+{normalized}"
+    total = sum(float(term) for term in re.findall(r"[+-]\d+(?:\.\d+)?", normalized))
+    return round(total, 4)
+
+
 def extract_client_from_detail(detail: str) -> str:
     text = str(detail or "").strip()
     if "·" in text:
@@ -306,22 +335,33 @@ def salida_adjustment_by_product(stock_inicial: pd.DataFrame) -> dict[str, float
     return {str(row["display_name"]): float(row[ADJUSTMENT_COLUMN]) for _, row in values.iterrows()}
 
 
-def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -> None:
+def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -> list[str]:
     if edited.empty:
-        return
+        return []
     base = stock_inicial.copy()
     if ADJUSTMENT_COLUMN not in base.columns:
         base[ADJUSTMENT_COLUMN] = 0.0
-    updates = {
-        str(row["Producto"]): float(row.get("Restar a salida", 0.0) or 0.0)
-        for _, row in edited.iterrows()
-        if "Producto" in row
-    }
+
+    updates: dict[str, float] = {}
+    errors: list[str] = []
+    for _, row in edited.iterrows():
+        if "Producto" not in row:
+            continue
+        product = str(row["Producto"])
+        raw_value = row.get("Restar a salida", 0.0)
+        try:
+            updates[product] = parse_adjustment_expression(raw_value)
+        except ValueError:
+            errors.append(f"{product}: {raw_value}")
+    if errors:
+        return errors
+
     base[ADJUSTMENT_COLUMN] = base.apply(
         lambda row: updates.get(str(row["display_name"]), float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0)),
         axis=1,
     )
     save_initial_stock(base)
+    return []
 
 
 def build_pivot(df: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
@@ -712,7 +752,7 @@ else:
             ajustes_salida = salida_adjustment_by_product(stock_inicial)
             resumen_productos_editor = resumen_productos.copy()
             resumen_productos_editor["Restar a salida"] = (
-                resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0)
+                resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
             )
             edited_ajustes = st.data_editor(
                 resumen_productos_editor,
@@ -723,13 +763,16 @@ else:
                     "Producto": st.column_config.TextColumn("Producto", disabled=True),
                     "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
                     "Salida real": st.column_config.TextColumn("Salida real", disabled=True),
-                    "Restar a salida": st.column_config.NumberColumn("Restar a salida", step=0.1),
+                    "Restar a salida": st.column_config.TextColumn("Restar a salida"),
                 },
             )
             if st.button("Guardar ajustes de salida", width="stretch"):
-                save_salida_adjustments(edited_ajustes, stock_inicial)
-                st.success("Ajustes de salida guardados.")
-                st.rerun()
+                errors = save_salida_adjustments(edited_ajustes, stock_inicial)
+                if errors:
+                    st.error("No pude leer estos ajustes: " + "; ".join(errors))
+                else:
+                    st.success("Ajustes de salida guardados.")
+                    st.rerun()
             producto_default = resumen_productos.iloc[0]["Producto"]
             producto_sel = producto_default
             producto_sel = st.selectbox(
