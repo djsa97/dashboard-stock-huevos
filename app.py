@@ -35,7 +35,7 @@ except ModuleNotFoundError:
     )
 
 
-ADJUSTMENT_COLUMN = "ajuste_manual_planchas"
+ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
 
 
 PALETTE = {
@@ -173,7 +173,7 @@ def save_initial_stock(df: pd.DataFrame) -> None:
                     "stock_inicial_planchas": float(row["stock_inicial_planchas"]),
                     ADJUSTMENT_COLUMN: float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                     "entradas_planchas": 0.0,
-                    "salidas_planchas": 0.0,
+                    "salidas_planchas": -float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                     "stock_actual_planchas": float(row["stock_inicial_planchas"])
                     + float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                 }
@@ -296,6 +296,32 @@ def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> p
         save_initial_stock(aligned)
 
     return aligned
+
+
+def salida_adjustment_by_product(stock_inicial: pd.DataFrame) -> dict[str, float]:
+    if stock_inicial.empty or ADJUSTMENT_COLUMN not in stock_inicial.columns:
+        return {}
+    values = stock_inicial[["display_name", ADJUSTMENT_COLUMN]].copy()
+    values[ADJUSTMENT_COLUMN] = pd.to_numeric(values[ADJUSTMENT_COLUMN], errors="coerce").fillna(0.0)
+    return {str(row["display_name"]): float(row[ADJUSTMENT_COLUMN]) for _, row in values.iterrows()}
+
+
+def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -> None:
+    if edited.empty:
+        return
+    base = stock_inicial.copy()
+    if ADJUSTMENT_COLUMN not in base.columns:
+        base[ADJUSTMENT_COLUMN] = 0.0
+    updates = {
+        str(row["Producto"]): float(row.get("Restar a salida", 0.0) or 0.0)
+        for _, row in edited.iterrows()
+        if "Producto" in row
+    }
+    base[ADJUSTMENT_COLUMN] = base.apply(
+        lambda row: updates.get(str(row["display_name"]), float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0)),
+        axis=1,
+    )
+    save_initial_stock(base)
 
 
 def build_pivot(df: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
@@ -538,7 +564,7 @@ ordered_labels = ordered_labels_from_summary(resumen)
 with st.sidebar:
     st.subheader("Stock inicial")
     if not stock_inicial.empty:
-        editor_df = stock_inicial.copy()
+        editor_df = stock_inicial[["bucket", "display_name", "stock_inicial_planchas"]].copy()
         edited = st.data_editor(
             editor_df,
             key="stock_inicial_editor",
@@ -548,11 +574,11 @@ with st.sidebar:
                 "bucket": st.column_config.TextColumn("Bucket", disabled=True),
                 "display_name": st.column_config.TextColumn("Producto", disabled=True),
                 "stock_inicial_planchas": st.column_config.NumberColumn("Inicial (planchas)", step=0.1),
-                ADJUSTMENT_COLUMN: st.column_config.NumberColumn("Ajuste manual", step=0.1),
             },
         )
         if st.button("Guardar stock inicial", width="stretch"):
-            save_initial_stock(edited)
+            edited_to_save = edited.merge(stock_inicial[["bucket", ADJUSTMENT_COLUMN]], on="bucket", how="left")
+            save_initial_stock(edited_to_save)
             st.success("Stock inicial guardado.")
             st.rerun()
 
@@ -683,18 +709,29 @@ else:
         elif resumen_productos.empty:
             st.info("No hay salidas para las fechas seleccionadas.")
         else:
-            event = st.dataframe(
-                resumen_productos,
+            ajustes_salida = salida_adjustment_by_product(stock_inicial)
+            resumen_productos_editor = resumen_productos.copy()
+            resumen_productos_editor["Restar a salida"] = (
+                resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0)
+            )
+            edited_ajustes = st.data_editor(
+                resumen_productos_editor,
                 width="stretch",
                 hide_index=True,
-                on_select="rerun",
-                selection_mode="single-row",
+                key="salida_producto_ajustes",
+                column_config={
+                    "Producto": st.column_config.TextColumn("Producto", disabled=True),
+                    "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
+                    "Salida real": st.column_config.TextColumn("Salida real", disabled=True),
+                    "Restar a salida": st.column_config.NumberColumn("Restar a salida", step=0.1),
+                },
             )
+            if st.button("Guardar ajustes de salida", width="stretch"):
+                save_salida_adjustments(edited_ajustes, stock_inicial)
+                st.success("Ajustes de salida guardados.")
+                st.rerun()
             producto_default = resumen_productos.iloc[0]["Producto"]
-            selected_rows = event.selection.rows if hasattr(event, "selection") else []
             producto_sel = producto_default
-            if selected_rows:
-                producto_sel = resumen_productos.iloc[selected_rows[0]]["Producto"]
             producto_sel = st.selectbox(
                 "Producto",
                 resumen_productos["Producto"].tolist(),

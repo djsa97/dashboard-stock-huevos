@@ -29,7 +29,7 @@ MOV_COLUMNS = [
     "origen",
 ]
 
-ADJUSTMENT_COLUMN = "ajuste_manual_planchas"
+ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
 
 BUCKET_ORDER = [
     "TIPO_A",
@@ -197,13 +197,14 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         bucket = bucket_info["bucket"]
         display_name = bucket_info["display_name"]
         subset = movimientos_sorted[movimientos_sorted["bucket"] == bucket].copy()
-        ajuste = float(adjustment_map.get(bucket, 0.0))
-        saldo = float(inicial_map.get(bucket, 0.0)) + ajuste
+        ajuste_salida = float(adjustment_map.get(bucket, 0.0))
+        saldo = float(inicial_map.get(bucket, 0.0)) + ajuste_salida
         entradas = float(subset.loc[subset["tipo_movimiento"] == "entrada", "cantidad_planchas"].sum())
         stock_effective = subset.apply(_is_stock_effective, axis=1) if not subset.empty else pd.Series(dtype=bool)
-        salidas = float(
+        salidas_brutas = float(
             subset.loc[(subset["tipo_movimiento"] == "salida") & stock_effective, "cantidad_planchas"].sum()
         )
+        salidas = salidas_brutas - ajuste_salida
         for _, row in subset.iterrows():
             if row["tipo_movimiento"] == "entrada":
                 saldo += float(row["cantidad_planchas"])
@@ -217,10 +218,10 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
                 "bucket": bucket,
                 "display_name": display_name,
                 "stock_inicial_planchas": round(inicial_map.get(bucket, 0.0), 4),
-                ADJUSTMENT_COLUMN: round(ajuste, 4),
+                ADJUSTMENT_COLUMN: round(ajuste_salida, 4),
                 "entradas_planchas": round(entradas, 4),
                 "salidas_planchas": round(salidas, 4),
-                "stock_actual_planchas": round(inicial_map.get(bucket, 0.0) + ajuste + entradas - salidas, 4),
+                "stock_actual_planchas": round(inicial_map.get(bucket, 0.0) + entradas - salidas, 4),
             }
         )
 
