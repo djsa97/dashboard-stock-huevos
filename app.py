@@ -63,6 +63,9 @@ ORDER_LABELS = {
     "DE_20": "De 20",
 }
 
+REAL_SALE_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
+
+
 st.set_page_config(
     page_title="Stock de huevos",
     page_icon="",
@@ -376,20 +379,29 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["Producto", "Salida real"])
-    direct = with_client_columns(df)
-    direct = direct[
-        direct["cliente_original"].astype(str).str.upper()
-        == direct["cliente_consolidado"].astype(str).str.upper()
-    ].copy()
-    if direct.empty:
-        return pd.DataFrame(columns=["Producto", "Salida real"])
-    summary = (
-        direct.groupby("display_name", as_index=False)["cantidad_planchas"]
+        return pd.DataFrame(columns=["Producto", "Salida total", "Salida real"])
+    enriched = with_client_columns(df)
+    total_summary = (
+        enriched.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
-        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida real"})
-        .sort_values("Salida real", ascending=False)
+        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida total"})
     )
+    real_rows = enriched[
+        (enriched["cliente_original"].astype(str).str.upper() == enriched["cliente_consolidado"].astype(str).str.upper())
+        & enriched["cliente_original"].astype(str).str.upper().isin(REAL_SALE_CLIENTS)
+    ].copy()
+    if real_rows.empty:
+        total_summary["Salida real"] = 0.0
+    else:
+        real_summary = (
+            real_rows.groupby("display_name", as_index=False)["cantidad_planchas"]
+            .sum()
+            .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida real"})
+        )
+        total_summary = total_summary.merge(real_summary, on="Producto", how="left")
+        total_summary["Salida real"] = total_summary["Salida real"].fillna(0.0)
+    summary = total_summary.sort_values("Salida total", ascending=False)
+    summary["Salida total"] = summary["Salida total"].map(format_qty)
     summary["Salida real"] = summary["Salida real"].map(format_qty)
     return summary
 
@@ -435,13 +447,13 @@ def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
     subset = df[df["display_name"].astype(str) == str(product_name)].copy()
     if subset.empty:
         return 0.0, 0.0
-    total = float(subset["cantidad_planchas"].sum())
-    direct = with_client_columns(subset)
-    direct = direct[
-        direct["cliente_original"].astype(str).str.upper()
-        == direct["cliente_consolidado"].astype(str).str.upper()
+    enriched = with_client_columns(subset)
+    total = float(enriched["cantidad_planchas"].sum())
+    real_rows = enriched[
+        (enriched["cliente_original"].astype(str).str.upper() == enriched["cliente_consolidado"].astype(str).str.upper())
+        & enriched["cliente_original"].astype(str).str.upper().isin(REAL_SALE_CLIENTS)
     ]
-    return total, float(direct["cantidad_planchas"].sum())
+    return total, float(real_rows["cantidad_planchas"].sum())
 
 
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
