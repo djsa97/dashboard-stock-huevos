@@ -417,6 +417,24 @@ def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
+    if df.empty or not product_name:
+        return 0.0, 0.0
+    subset = df[df["display_name"].astype(str) == str(product_name)].copy()
+    if subset.empty:
+        return 0.0, 0.0
+    total = float(subset["cantidad_planchas"].sum())
+    if "detalle_original" not in subset.columns:
+        subset["detalle_original"] = subset["detalle"]
+    subset["cliente_consolidado"] = subset["detalle"].map(extract_client_from_detail)
+    subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
+    direct = subset[
+        subset["cliente_original"].astype(str).str.upper()
+        == subset["cliente_consolidado"].astype(str).str.upper()
+    ]
+    return total, float(direct["cantidad_planchas"].sum())
+
+
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
     if df.empty or not client_name:
         return pd.DataFrame(columns=["Fecha", "Pedido", "Producto", "Salidas en planchas"])
@@ -652,6 +670,10 @@ else:
                 resumen_productos["Producto"].tolist(),
                 index=resumen_productos["Producto"].tolist().index(producto_sel),
             )
+            total_producto, total_directo = product_totals(salidas_dia, producto_sel)
+            total_cols = st.columns(2)
+            total_cols[0].metric("Total salido del producto", format_qty(total_producto))
+            total_cols[1].metric("Total directo", format_qty(total_directo))
             st.markdown(f"**Detalle de clientes para: {producto_sel}**")
             detalle_producto = prepare_product_detail(salidas_dia, producto_sel)
             st.dataframe(detalle_producto, width="stretch", hide_index=True)
