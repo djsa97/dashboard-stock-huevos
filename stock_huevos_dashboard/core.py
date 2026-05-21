@@ -29,7 +29,8 @@ MOV_COLUMNS = [
     "origen",
 ]
 
-ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
+ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
+LEGACY_ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
 
 BUCKET_ORDER = [
     "TIPO_A",
@@ -165,6 +166,8 @@ def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict
 def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     ensure_initial_stock_file()
     inicial = pd.read_csv(INICIAL_OUTPUT)
+    if ADJUSTMENT_COLUMN not in inicial.columns and LEGACY_ADJUSTMENT_COLUMN in inicial.columns:
+        inicial[ADJUSTMENT_COLUMN] = inicial[LEGACY_ADJUSTMENT_COLUMN]
     if ADJUSTMENT_COLUMN not in inicial.columns:
         inicial[ADJUSTMENT_COLUMN] = 0.0
     inicial_map = {row["bucket"]: float(row["stock_inicial_planchas"]) for _, row in inicial.iterrows()}
@@ -198,13 +201,13 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         display_name = bucket_info["display_name"]
         subset = movimientos_sorted[movimientos_sorted["bucket"] == bucket].copy()
         ajuste_salida = float(adjustment_map.get(bucket, 0.0))
-        saldo = float(inicial_map.get(bucket, 0.0)) + ajuste_salida
+        saldo = float(inicial_map.get(bucket, 0.0)) - ajuste_salida
         entradas = float(subset.loc[subset["tipo_movimiento"] == "entrada", "cantidad_planchas"].sum())
         stock_effective = subset.apply(_is_stock_effective, axis=1) if not subset.empty else pd.Series(dtype=bool)
         salidas_brutas = float(
             subset.loc[(subset["tipo_movimiento"] == "salida") & stock_effective, "cantidad_planchas"].sum()
         )
-        salidas = salidas_brutas - ajuste_salida
+        salidas = salidas_brutas + ajuste_salida
         for _, row in subset.iterrows():
             if row["tipo_movimiento"] == "entrada":
                 saldo += float(row["cantidad_planchas"])

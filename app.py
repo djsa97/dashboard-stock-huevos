@@ -36,7 +36,8 @@ except ModuleNotFoundError:
     )
 
 
-ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
+ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
+LEGACY_ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
 
 
 PALETTE = {
@@ -151,8 +152,11 @@ def load_csv(path: Path) -> pd.DataFrame:
 
 
 def save_initial_stock(df: pd.DataFrame) -> None:
+    if ADJUSTMENT_COLUMN not in df.columns and LEGACY_ADJUSTMENT_COLUMN in df.columns:
+        df[ADJUSTMENT_COLUMN] = df[LEGACY_ADJUSTMENT_COLUMN]
     if ADJUSTMENT_COLUMN not in df.columns:
         df[ADJUSTMENT_COLUMN] = 0.0
+    df = df.drop(columns=[LEGACY_ADJUSTMENT_COLUMN], errors="ignore")
     df.to_csv(INICIAL_OUTPUT, index=False)
     entradas = load_csv(ENTRADAS_OUTPUT)
     salidas = load_csv(SALIDAS_OUTPUT)
@@ -174,9 +178,9 @@ def save_initial_stock(df: pd.DataFrame) -> None:
                     "stock_inicial_planchas": float(row["stock_inicial_planchas"]),
                     ADJUSTMENT_COLUMN: float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                     "entradas_planchas": 0.0,
-                    "salidas_planchas": -float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
+                    "salidas_planchas": float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                     "stock_actual_planchas": float(row["stock_inicial_planchas"])
-                    + float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
+                    - float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                 }
                 for _, row in df.iterrows()
             ]
@@ -304,6 +308,8 @@ def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> p
         return aligned
 
     base = stock_inicial.copy()
+    if ADJUSTMENT_COLUMN not in base.columns and LEGACY_ADJUSTMENT_COLUMN in base.columns:
+        base[ADJUSTMENT_COLUMN] = base[LEGACY_ADJUSTMENT_COLUMN]
     if "bucket" not in base.columns:
         base["bucket"] = ""
     if "stock_inicial_planchas" not in base.columns:
@@ -329,7 +335,10 @@ def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> p
 
 def salida_adjustment_by_product(stock_inicial: pd.DataFrame) -> dict[str, float]:
     if stock_inicial.empty or ADJUSTMENT_COLUMN not in stock_inicial.columns:
-        return {}
+        if not stock_inicial.empty and LEGACY_ADJUSTMENT_COLUMN in stock_inicial.columns:
+            stock_inicial = stock_inicial.rename(columns={LEGACY_ADJUSTMENT_COLUMN: ADJUSTMENT_COLUMN})
+        else:
+            return {}
     values = stock_inicial[["display_name", ADJUSTMENT_COLUMN]].copy()
     values[ADJUSTMENT_COLUMN] = pd.to_numeric(values[ADJUSTMENT_COLUMN], errors="coerce").fillna(0.0)
     return {str(row["display_name"]): float(row[ADJUSTMENT_COLUMN]) for _, row in values.iterrows()}
@@ -339,6 +348,8 @@ def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -
     if edited.empty:
         return []
     base = stock_inicial.copy()
+    if ADJUSTMENT_COLUMN not in base.columns and LEGACY_ADJUSTMENT_COLUMN in base.columns:
+        base[ADJUSTMENT_COLUMN] = base[LEGACY_ADJUSTMENT_COLUMN]
     if ADJUSTMENT_COLUMN not in base.columns:
         base[ADJUSTMENT_COLUMN] = 0.0
 
@@ -348,7 +359,7 @@ def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -
         if "Producto" not in row:
             continue
         product = str(row["Producto"])
-        raw_value = row.get("Restar a salida", 0.0)
+        raw_value = row.get("Ajuste salida", 0.0)
         try:
             updates[product] = parse_adjustment_expression(raw_value)
         except ValueError:
@@ -751,7 +762,7 @@ else:
         else:
             ajustes_salida = salida_adjustment_by_product(stock_inicial)
             resumen_productos_editor = resumen_productos.copy()
-            resumen_productos_editor["Restar a salida"] = (
+            resumen_productos_editor["Ajuste salida"] = (
                 resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
             )
             edited_ajustes = st.data_editor(
@@ -763,7 +774,7 @@ else:
                     "Producto": st.column_config.TextColumn("Producto", disabled=True),
                     "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
                     "Salida real": st.column_config.TextColumn("Salida real", disabled=True),
-                    "Restar a salida": st.column_config.TextColumn("Restar a salida"),
+                    "Ajuste salida": st.column_config.TextColumn("Ajuste salida"),
                 },
             )
             if st.button("Guardar ajustes de salida", width="stretch"):
