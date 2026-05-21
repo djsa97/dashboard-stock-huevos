@@ -834,6 +834,7 @@ else:
         elif resumen_productos.empty:
             st.info("No hay salidas para las fechas seleccionadas.")
         else:
+            adjustment_editor_key = "salida_producto_ajustes_v2"
             ajustes_salida = salida_adjustment_by_product(stock_inicial)
             resumen_productos_editor = resumen_productos.copy()
             resumen_productos_editor["Ajuste salida"] = (
@@ -841,14 +842,14 @@ else:
             )
             resumen_productos_editor = apply_editor_pending_values(
                 resumen_productos_editor,
-                "salida_producto_ajustes",
+                adjustment_editor_key,
             )
             resumen_productos_editor = preview_adjusted_product_summary(resumen_productos_editor)
             edited_ajustes = st.data_editor(
                 resumen_productos_editor,
                 width="stretch",
                 hide_index=True,
-                key="salida_producto_ajustes",
+                key=adjustment_editor_key,
                 column_config={
                     "Producto": st.column_config.TextColumn("Producto", disabled=True),
                     "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
