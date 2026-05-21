@@ -63,6 +63,8 @@ ORDER_LABELS = {
     "DE_20": "De 20",
 }
 
+REAL_SALE_ORIGINAL_CLIENTS = {"DIEGO SOLJANCIC", "REPARTO"}
+
 
 st.set_page_config(
     page_title="Stock de huevos",
@@ -222,6 +224,22 @@ def extract_order_from_detail(detail: str) -> str:
     return ""
 
 
+def with_client_columns(df: pd.DataFrame) -> pd.DataFrame:
+    result = df.copy()
+    if "detalle_original" not in result.columns:
+        result["detalle_original"] = result["detalle"]
+    result["cliente_consolidado"] = result["detalle"].map(extract_client_from_detail)
+    result["cliente_original"] = result["detalle_original"].map(extract_client_from_detail)
+    return result
+
+
+def real_sale_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    result = with_client_columns(df)
+    return result[result["cliente_original"].astype(str).str.upper().isin(REAL_SALE_ORIGINAL_CLIENTS)].copy()
+
+
 def render_stock_cards(resumen: pd.DataFrame, ordered_labels: list[str]) -> None:
     values = {row["display_name"]: row["stock_actual_planchas"] for _, row in resumen.iterrows()}
     cards_per_row = 8
@@ -368,14 +386,17 @@ def prepare_client_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
 
 def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["Producto"])
+        return pd.DataFrame(columns=["Producto", "Salida real"])
+    real_rows = real_sale_rows(df)
+    if real_rows.empty:
+        return pd.DataFrame(columns=["Producto", "Salida real"])
     summary = (
-        df.groupby("display_name", as_index=False)["cantidad_planchas"]
+        real_rows.groupby("display_name", as_index=False)["cantidad_planchas"]
         .sum()
-        .rename(columns={"display_name": "Producto", "cantidad_planchas": "_orden"})
-        .sort_values("_orden", ascending=False)
-        .drop(columns=["_orden"])
+        .rename(columns={"display_name": "Producto", "cantidad_planchas": "Salida real"})
+        .sort_values("Salida real", ascending=False)
     )
+    summary["Salida real"] = summary["Salida real"].map(format_qty)
     return summary
 
 
@@ -387,10 +408,7 @@ def prepare_product_detail(df: pd.DataFrame, product_name: str) -> pd.DataFrame:
     if subset.empty:
         return pd.DataFrame(columns=["Cliente", "Cliente consolidado", "Pedidos", "Productos ERP", "Salidas"])
 
-    if "detalle_original" not in subset.columns:
-        subset["detalle_original"] = subset["detalle"]
-    subset["cliente_consolidado"] = subset["detalle"].map(extract_client_from_detail)
-    subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
+    subset = with_client_columns(subset)
     subset["pedido_original"] = subset["detalle_original"].map(extract_order_from_detail)
     detail = (
         subset.groupby(["cliente_original", "cliente_consolidado"], as_index=False)
@@ -424,15 +442,8 @@ def product_totals(df: pd.DataFrame, product_name: str) -> tuple[float, float]:
     if subset.empty:
         return 0.0, 0.0
     total = float(subset["cantidad_planchas"].sum())
-    if "detalle_original" not in subset.columns:
-        subset["detalle_original"] = subset["detalle"]
-    subset["cliente_consolidado"] = subset["detalle"].map(extract_client_from_detail)
-    subset["cliente_original"] = subset["detalle_original"].map(extract_client_from_detail)
-    direct = subset[
-        subset["cliente_original"].astype(str).str.upper()
-        == subset["cliente_consolidado"].astype(str).str.upper()
-    ]
-    return total, float(direct["cantidad_planchas"].sum())
+    real_rows = real_sale_rows(subset)
+    return total, float(real_rows["cantidad_planchas"].sum())
 
 
 def prepare_client_direct_detail(df: pd.DataFrame, client_name: str) -> pd.DataFrame:
@@ -672,8 +683,8 @@ else:
             )
             total_producto, total_directo = product_totals(salidas_dia, producto_sel)
             total_cols = st.columns(2)
-            total_cols[0].metric("Total salido del producto", format_qty(total_producto))
-            total_cols[1].metric("Total directo", format_qty(total_directo))
+            total_cols[0].metric("Salida real", format_qty(total_directo))
+            total_cols[1].metric("Total bruto del producto", format_qty(total_producto))
             st.markdown(f"**Detalle de clientes para: {producto_sel}**")
             detalle_producto = prepare_product_detail(salidas_dia, producto_sel)
             st.dataframe(detalle_producto, width="stretch", hide_index=True)
