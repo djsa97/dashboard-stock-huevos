@@ -372,6 +372,7 @@ def save_salida_adjustments(edited: pd.DataFrame, stock_inicial: pd.DataFrame) -
         axis=1,
     )
     save_initial_stock(base)
+    st.session_state.pop("salida_adjustment_draft", None)
     return []
 
 
@@ -461,6 +462,13 @@ def preview_stock_summary_with_adjustments(resumen: pd.DataFrame, edited: pd.Dat
 
 def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
     result = df.copy()
+    draft = st.session_state.get("salida_adjustment_draft", {})
+    if isinstance(draft, dict) and "Producto" in result.columns and "Ajuste salida" in result.columns:
+        result["Ajuste salida"] = result.apply(
+            lambda row: draft.get(str(row["Producto"]), row["Ajuste salida"]),
+            axis=1,
+        )
+
     state = st.session_state.get(key, {})
     edited_rows = state.get("edited_rows", {}) if isinstance(state, dict) else {}
     for row_index, changes in edited_rows.items():
@@ -473,6 +481,14 @@ def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
         for column, value in changes.items():
             if column in result.columns:
                 result.iat[index, result.columns.get_loc(column)] = value
+                if column == "Ajuste salida" and "Producto" in result.columns:
+                    product = str(result.iat[index, result.columns.get_loc("Producto")])
+                    if product:
+                        current_draft = st.session_state.get("salida_adjustment_draft", {})
+                        if not isinstance(current_draft, dict):
+                            current_draft = {}
+                        current_draft[product] = value
+                        st.session_state["salida_adjustment_draft"] = current_draft
     return result
 
 
