@@ -440,11 +440,11 @@ def apply_editor_pending_values(df: pd.DataFrame, key: str) -> pd.DataFrame:
             index = int(row_index)
         except (TypeError, ValueError):
             continue
-        if index not in result.index or not isinstance(changes, dict):
+        if index < 0 or index >= len(result) or not isinstance(changes, dict):
             continue
         for column, value in changes.items():
             if column in result.columns:
-                result.at[index, column] = value
+                result.iat[index, result.columns.get_loc(column)] = value
     return result
 
 
@@ -558,7 +558,7 @@ def prepare_product_summary(df: pd.DataFrame) -> pd.DataFrame:
         )
         total_summary = total_summary.merge(real_summary, on="Producto", how="left")
         total_summary["Salida real"] = total_summary["Salida real"].fillna(0.0)
-    summary = total_summary.sort_values("Salida total", ascending=False)
+    summary = total_summary.sort_values("Salida total", ascending=False).reset_index(drop=True)
     summary["Salida total"] = summary["Salida total"].map(format_qty)
     summary["Salida real"] = summary["Salida real"].map(format_qty)
     return summary
@@ -834,9 +834,9 @@ else:
         elif resumen_productos.empty:
             st.info("No hay salidas para las fechas seleccionadas.")
         else:
-            adjustment_editor_key = "salida_producto_ajustes_v2"
+            adjustment_editor_key = "salida_producto_ajustes_v3"
             ajustes_salida = salida_adjustment_by_product(stock_inicial)
-            resumen_productos_editor = resumen_productos.copy()
+            resumen_productos_editor = resumen_productos.reset_index(drop=True).copy()
             resumen_productos_editor["Ajuste salida"] = (
                 resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
             )
