@@ -14,6 +14,7 @@ MOVIMIENTOS_OUTPUT = DATA_DIR / "movimientos_stock.csv"
 RESUMEN_OUTPUT = DATA_DIR / "resumen_stock.csv"
 INICIAL_OUTPUT = DATA_DIR / "stock_inicial.csv"
 CONFIG_OUTPUT = DATA_DIR / "config_productos.csv"
+TRANSFERS_OUTPUT = DATA_DIR / "ajustes_traspaso.csv"
 TRACKING_START_DATE = pd.Timestamp("2026-05-19")
 
 MOV_COLUMNS = [
@@ -27,6 +28,14 @@ MOV_COLUMNS = [
     "detalle",
     "detalle_original",
     "origen",
+]
+
+TRANSFER_COLUMNS = [
+    "fecha",
+    "bucket_origen",
+    "bucket_destino",
+    "cantidad_planchas",
+    "motivo",
 ]
 
 ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
@@ -114,6 +123,75 @@ def ensure_initial_stock_file() -> None:
     pd.DataFrame(rows).to_csv(INICIAL_OUTPUT, index=False)
 
 
+def ensure_transfers_file() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if TRANSFERS_OUTPUT.exists():
+        return
+    pd.DataFrame(columns=TRANSFER_COLUMNS).to_csv(TRANSFERS_OUTPUT, index=False)
+
+
+def _display_by_bucket() -> dict[str, str]:
+    return {cfg.bucket: cfg.display_name for cfg in TRACKED_PRODUCTS}
+
+
+def _load_transfer_adjustments(display_by_bucket: dict[str, str]) -> pd.DataFrame:
+    ensure_transfers_file()
+    try:
+        transfers = pd.read_csv(TRANSFERS_OUTPUT)
+    except pd.errors.EmptyDataError:
+        transfers = pd.DataFrame(columns=TRANSFER_COLUMNS)
+
+    for column in TRANSFER_COLUMNS:
+        if column not in transfers.columns:
+            transfers[column] = ""
+
+    rows: list[dict] = []
+    for _, transfer in transfers.iterrows():
+        source_bucket = str(transfer.get("bucket_origen", "") or "").strip()
+        target_bucket = str(transfer.get("bucket_destino", "") or "").strip()
+        if not source_bucket or not target_bucket or source_bucket == target_bucket:
+            continue
+        if source_bucket not in display_by_bucket or target_bucket not in display_by_bucket:
+            continue
+        quantity = pd.to_numeric(transfer.get("cantidad_planchas", 0.0), errors="coerce")
+        if pd.isna(quantity) or float(quantity) == 0.0:
+            continue
+        quantity = abs(float(quantity))
+        fecha = pd.to_datetime(transfer.get("fecha", TRACKING_START_DATE), errors="coerce")
+        if pd.isna(fecha):
+            fecha = TRACKING_START_DATE
+        motivo = str(transfer.get("motivo", "") or "").strip()
+        detail = f"Traspaso manual: {motivo}" if motivo else "Traspaso manual"
+
+        common = {
+            "fecha": fecha.date().isoformat(),
+            "producto_fuente": "Ajuste manual trazable",
+            "producto_sku": "",
+            "cantidad_planchas": round(quantity, 4),
+            "detalle": detail,
+            "detalle_original": detail,
+            "origen": "Ajuste manual trazable",
+        }
+        rows.append(
+            {
+                **common,
+                "tipo_movimiento": "salida",
+                "bucket": source_bucket,
+                "display_name": display_by_bucket[source_bucket],
+            }
+        )
+        rows.append(
+            {
+                **common,
+                "tipo_movimiento": "entrada",
+                "bucket": target_bucket,
+                "display_name": display_by_bucket[target_bucket],
+            }
+        )
+
+    return pd.DataFrame(rows, columns=MOV_COLUMNS)
+
+
 def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict[str, float]) -> pd.DataFrame:
     if movimientos.empty:
         return movimientos
@@ -165,6 +243,7 @@ def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict
 
 def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     ensure_initial_stock_file()
+    ensure_transfers_file()
     inicial = pd.read_csv(INICIAL_OUTPUT)
     if ADJUSTMENT_COLUMN not in inicial.columns and LEGACY_ADJUSTMENT_COLUMN in inicial.columns:
         inicial[ADJUSTMENT_COLUMN] = inicial[LEGACY_ADJUSTMENT_COLUMN]
@@ -178,7 +257,10 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         movimientos = movimientos[movimientos["fecha"].ge(TRACKING_START_DATE)].copy()
     movimientos = _allocate_packaged_type_a_sales(movimientos, inicial_map)
 
-    display_by_bucket = {cfg.bucket: cfg.display_name for cfg in TRACKED_PRODUCTS}
+    display_by_bucket = _display_by_bucket()
+    transfer_movements = _load_transfer_adjustments(display_by_bucket)
+    if not transfer_movements.empty:
+        movimientos = pd.concat([movimientos, transfer_movements], ignore_index=True)
     bucket_map = display_by_bucket.copy()
     if not movimientos.empty:
         for _, row in movimientos[["bucket", "display_name"]].drop_duplicates().iterrows():

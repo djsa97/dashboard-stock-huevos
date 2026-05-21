@@ -20,6 +20,7 @@ try:
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
         TRACKING_START_DATE,
+        TRANSFERS_OUTPUT,
     )
 except ModuleNotFoundError:
     from core import (  # type: ignore
@@ -33,11 +34,13 @@ except ModuleNotFoundError:
         RESUMEN_OUTPUT,
         SALIDAS_OUTPUT,
         TRACKING_START_DATE,
+        TRANSFERS_OUTPUT,
     )
 
 
 ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
 LEGACY_ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
+TRANSFER_COLUMNS = ["fecha", "bucket_origen", "bucket_destino", "cantidad_planchas", "motivo"]
 
 
 PALETTE = {
@@ -191,6 +194,51 @@ def save_initial_stock(df: pd.DataFrame) -> None:
     movimientos_enriched, resumen = compute_stock_outputs(movimientos[MOV_COLUMNS] if "saldo_planchas" in movimientos.columns else movimientos)
     movimientos_enriched.to_csv(MOVIMIENTOS_OUTPUT, index=False)
     resumen.to_csv(RESUMEN_OUTPUT, index=False)
+
+
+def save_transfer_adjustments(df: pd.DataFrame) -> list[str]:
+    result = df.copy()
+    for column in TRANSFER_COLUMNS:
+        if column not in result.columns:
+            result[column] = ""
+    result = result[TRANSFER_COLUMNS].copy()
+    result = result.dropna(how="all")
+    for column in ["bucket_origen", "bucket_destino", "motivo"]:
+        result[column] = result[column].fillna("").astype(str).str.strip()
+    result["cantidad_planchas"] = pd.to_numeric(result["cantidad_planchas"], errors="coerce").fillna(0.0)
+
+    errors: list[str] = []
+    valid_buckets = set(ORDER_LABELS)
+    for index, row in result.iterrows():
+        source = str(row["bucket_origen"])
+        target = str(row["bucket_destino"])
+        quantity = float(row["cantidad_planchas"])
+        if not source and not target and quantity == 0.0:
+            continue
+        if source not in valid_buckets:
+            errors.append(f"fila {index + 1}: origen inválido")
+        if target not in valid_buckets:
+            errors.append(f"fila {index + 1}: destino inválido")
+        if source == target:
+            errors.append(f"fila {index + 1}: origen y destino son iguales")
+        if quantity <= 0:
+            errors.append(f"fila {index + 1}: cantidad debe ser mayor a 0")
+    if errors:
+        return errors
+
+    result = result[
+        result["bucket_origen"].isin(valid_buckets)
+        & result["bucket_destino"].isin(valid_buckets)
+        & (result["bucket_origen"] != result["bucket_destino"])
+        & (result["cantidad_planchas"] > 0)
+    ].copy()
+    result["fecha"] = pd.to_datetime(result["fecha"], errors="coerce").fillna(TRACKING_START_DATE).dt.date
+    result.to_csv(TRANSFERS_OUTPUT, index=False)
+
+    stock_inicial = load_csv(INICIAL_OUTPUT)
+    if not stock_inicial.empty:
+        save_initial_stock(stock_inicial)
+    return []
 
 
 def order_key(bucket: str) -> int:
@@ -717,6 +765,7 @@ movimientos = load_csv(MOVIMIENTOS_OUTPUT)
 resumen = load_csv(RESUMEN_OUTPUT)
 config = load_csv(CONFIG_OUTPUT)
 stock_inicial = load_csv(INICIAL_OUTPUT)
+traspasos = load_csv(TRANSFERS_OUTPUT)
 
 if entradas.empty and salidas.empty:
     base_movimientos = movimientos.drop(columns=["saldo_planchas"], errors="ignore")
@@ -769,9 +818,38 @@ with st.sidebar:
             st.success("Stock inicial guardado.")
             st.rerun()
 
+    st.subheader("Traspasos manuales")
+    if traspasos.empty:
+        traspasos_editor = pd.DataFrame(columns=TRANSFER_COLUMNS)
+    else:
+        traspasos_editor = traspasos[TRANSFER_COLUMNS].copy()
+    edited_traspasos = st.data_editor(
+        traspasos_editor,
+        key="traspasos_manual_editor",
+        hide_index=True,
+        width="stretch",
+        num_rows="dynamic",
+        column_config={
+            "fecha": st.column_config.DateColumn("Fecha"),
+            "bucket_origen": st.column_config.SelectboxColumn("Sale de", options=list(ORDER_LABELS.keys())),
+            "bucket_destino": st.column_config.SelectboxColumn("Entra a", options=list(ORDER_LABELS.keys())),
+            "cantidad_planchas": st.column_config.NumberColumn("Planchas", min_value=0.0, step=0.01),
+            "motivo": st.column_config.TextColumn("Motivo"),
+        },
+    )
+    st.caption("Todo va en planchas equivalentes. Ejemplo: 100 de 6 = 20 planchas.")
+    if st.button("Guardar traspasos", width="stretch"):
+        errors = save_transfer_adjustments(edited_traspasos)
+        if errors:
+            st.error("No pude guardar traspasos: " + "; ".join(errors))
+        else:
+            st.success("Traspasos guardados.")
+            st.rerun()
+
     st.subheader("Archivos")
     st.write(f"Entradas: `{ENTRADAS_OUTPUT.name}`")
     st.write(f"Salidas: `{SALIDAS_OUTPUT.name}`")
+    st.write(f"Traspasos: `{TRANSFERS_OUTPUT.name}`")
     st.write(f"Resumen: `{RESUMEN_OUTPUT.name}`")
 
 
@@ -896,38 +974,12 @@ else:
         elif resumen_productos.empty:
             st.info("No hay salidas para las fechas seleccionadas.")
         else:
-            adjustment_editor_key = "salida_producto_ajustes_v3"
-            ajustes_salida = salida_adjustment_by_product(stock_inicial)
-            resumen_productos_editor = add_adjustable_stock_rows(resumen_productos, resumen).reset_index(drop=True).copy()
-            resumen_productos_editor["Ajuste salida"] = (
-                resumen_productos_editor["Producto"].map(ajustes_salida).fillna(0.0).map(format_adjustment_input)
-            )
-            resumen_productos_editor = apply_editor_pending_values(
-                resumen_productos_editor,
-                adjustment_editor_key,
-            )
-            resumen_productos_editor = preview_adjusted_product_summary(resumen_productos_editor)
-            edited_ajustes = st.data_editor(
-                resumen_productos_editor,
+            resumen_productos_show = add_adjustable_stock_rows(resumen_productos, resumen).reset_index(drop=True).copy()
+            st.dataframe(
+                resumen_productos_show,
                 width="stretch",
                 hide_index=True,
-                key=adjustment_editor_key,
-                column_config={
-                    "Producto": st.column_config.TextColumn("Producto", disabled=True),
-                    "Salida total": st.column_config.TextColumn("Salida total", disabled=True),
-                    "Salida real": st.column_config.TextColumn("Salida real", disabled=True),
-                    "Ajuste salida": st.column_config.TextColumn("Ajuste salida"),
-                    "Salida ajustada": st.column_config.TextColumn("Salida ajustada", disabled=True),
-                },
             )
-            resumen_stock_preview = preview_stock_summary_with_adjustments(resumen, edited_ajustes)
-            if st.button("Guardar ajustes de salida", width="stretch"):
-                errors = save_salida_adjustments(edited_ajustes, stock_inicial)
-                if errors:
-                    st.error("No pude leer estos ajustes: " + "; ".join(errors))
-                else:
-                    st.success("Ajustes de salida guardados.")
-                    st.rerun()
             producto_default = resumen_productos.iloc[0]["Producto"]
             producto_sel = producto_default
             producto_sel = st.selectbox(
