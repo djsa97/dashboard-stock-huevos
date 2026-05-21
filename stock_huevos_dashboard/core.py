@@ -29,6 +29,8 @@ MOV_COLUMNS = [
     "origen",
 ]
 
+ADJUSTMENT_COLUMN = "ajuste_manual_planchas"
+
 BUCKET_ORDER = [
     "TIPO_A",
     "SUPER",
@@ -104,6 +106,7 @@ def ensure_initial_stock_file() -> None:
             "bucket": cfg.bucket,
             "display_name": cfg.display_name,
             "stock_inicial_planchas": 0.0,
+            ADJUSTMENT_COLUMN: 0.0,
         }
         for cfg in TRACKED_PRODUCTS
     ]
@@ -162,7 +165,10 @@ def _allocate_packaged_type_a_sales(movimientos: pd.DataFrame, inicial_map: dict
 def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     ensure_initial_stock_file()
     inicial = pd.read_csv(INICIAL_OUTPUT)
+    if ADJUSTMENT_COLUMN not in inicial.columns:
+        inicial[ADJUSTMENT_COLUMN] = 0.0
     inicial_map = {row["bucket"]: float(row["stock_inicial_planchas"]) for _, row in inicial.iterrows()}
+    adjustment_map = {row["bucket"]: float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0) for _, row in inicial.iterrows()}
     if not movimientos.empty:
         movimientos = movimientos.copy()
         movimientos["fecha"] = pd.to_datetime(movimientos["fecha"], errors="coerce")
@@ -191,7 +197,8 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
         bucket = bucket_info["bucket"]
         display_name = bucket_info["display_name"]
         subset = movimientos_sorted[movimientos_sorted["bucket"] == bucket].copy()
-        saldo = float(inicial_map.get(bucket, 0.0))
+        ajuste = float(adjustment_map.get(bucket, 0.0))
+        saldo = float(inicial_map.get(bucket, 0.0)) + ajuste
         entradas = float(subset.loc[subset["tipo_movimiento"] == "entrada", "cantidad_planchas"].sum())
         stock_effective = subset.apply(_is_stock_effective, axis=1) if not subset.empty else pd.Series(dtype=bool)
         salidas = float(
@@ -210,9 +217,10 @@ def compute_stock_outputs(movimientos: pd.DataFrame) -> tuple[pd.DataFrame, pd.D
                 "bucket": bucket,
                 "display_name": display_name,
                 "stock_inicial_planchas": round(inicial_map.get(bucket, 0.0), 4),
+                ADJUSTMENT_COLUMN: round(ajuste, 4),
                 "entradas_planchas": round(entradas, 4),
                 "salidas_planchas": round(salidas, 4),
-                "stock_actual_planchas": round(inicial_map.get(bucket, 0.0) + entradas - salidas, 4),
+                "stock_actual_planchas": round(inicial_map.get(bucket, 0.0) + ajuste + entradas - salidas, 4),
             }
         )
 

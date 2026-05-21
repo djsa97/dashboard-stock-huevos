@@ -9,6 +9,7 @@ from pandas.errors import EmptyDataError
 
 try:
     from stock_huevos_dashboard.core import (
+        ADJUSTMENT_COLUMN,
         BUCKET_ORDER,
         CONFIG_OUTPUT,
         compute_stock_outputs,
@@ -22,6 +23,7 @@ try:
     )
 except ModuleNotFoundError:
     from core import (  # type: ignore
+        ADJUSTMENT_COLUMN,
         BUCKET_ORDER,
         CONFIG_OUTPUT,
         compute_stock_outputs,
@@ -147,6 +149,8 @@ def load_csv(path: Path) -> pd.DataFrame:
 
 
 def save_initial_stock(df: pd.DataFrame) -> None:
+    if ADJUSTMENT_COLUMN not in df.columns:
+        df[ADJUSTMENT_COLUMN] = 0.0
     df.to_csv(INICIAL_OUTPUT, index=False)
     entradas = load_csv(ENTRADAS_OUTPUT)
     salidas = load_csv(SALIDAS_OUTPUT)
@@ -166,9 +170,11 @@ def save_initial_stock(df: pd.DataFrame) -> None:
                     "bucket": row["bucket"],
                     "display_name": row["display_name"],
                     "stock_inicial_planchas": float(row["stock_inicial_planchas"]),
+                    ADJUSTMENT_COLUMN: float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                     "entradas_planchas": 0.0,
                     "salidas_planchas": 0.0,
-                    "stock_actual_planchas": float(row["stock_inicial_planchas"]),
+                    "stock_actual_planchas": float(row["stock_inicial_planchas"])
+                    + float(row.get(ADJUSTMENT_COLUMN, 0.0) or 0.0),
                 }
                 for _, row in df.iterrows()
             ]
@@ -263,6 +269,7 @@ def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> p
     if stock_inicial.empty:
         aligned = template.copy()
         aligned["stock_inicial_planchas"] = 0.0
+        aligned[ADJUSTMENT_COLUMN] = 0.0
         save_initial_stock(aligned)
         return aligned
 
@@ -271,15 +278,18 @@ def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> p
         base["bucket"] = ""
     if "stock_inicial_planchas" not in base.columns:
         base["stock_inicial_planchas"] = 0.0
+    if ADJUSTMENT_COLUMN not in base.columns:
+        base[ADJUSTMENT_COLUMN] = 0.0
 
-    base = base[["bucket", "stock_inicial_planchas"]].drop_duplicates(subset=["bucket"], keep="last")
+    base = base[["bucket", "stock_inicial_planchas", ADJUSTMENT_COLUMN]].drop_duplicates(subset=["bucket"], keep="last")
     aligned = template.merge(base, on="bucket", how="left")
     aligned["stock_inicial_planchas"] = aligned["stock_inicial_planchas"].fillna(0.0)
+    aligned[ADJUSTMENT_COLUMN] = aligned[ADJUSTMENT_COLUMN].fillna(0.0)
 
     labels_changed = not stock_inicial[["bucket", "display_name"]].fillna("").equals(
         aligned[["bucket", "display_name"]].fillna("")
     ) if {"bucket", "display_name"}.issubset(stock_inicial.columns) else True
-    missing_values = aligned["stock_inicial_planchas"].isna().any()
+    missing_values = aligned[["stock_inicial_planchas", ADJUSTMENT_COLUMN]].isna().any().any()
 
     if labels_changed or missing_values or len(aligned) != len(stock_inicial):
         save_initial_stock(aligned)
@@ -537,6 +547,7 @@ with st.sidebar:
                 "bucket": st.column_config.TextColumn("Bucket", disabled=True),
                 "display_name": st.column_config.TextColumn("Producto", disabled=True),
                 "stock_inicial_planchas": st.column_config.NumberColumn("Inicial (planchas)", step=0.1),
+                ADJUSTMENT_COLUMN: st.column_config.NumberColumn("Ajuste manual", step=0.1),
             },
         )
         if st.button("Guardar stock inicial", width="stretch"):
