@@ -23,3 +23,4 @@ fecha,tipo_movimiento,bucket,display_name,producto_fuente,producto_sku,cantidad_
 2026-05-19,salida,SIN_CLASIFICAR,Sin clasificar,Rotos,,0.1,Galpón 7/70,Galpón 7/70,Google Sheet Producción
 2026-05-19,entrada,ROTOS,Rotos,Rotos,,6.0,Producción,Producción,Google Sheet Producción
 2026-05-19,salida,SIN_CLASIFICAR,Sin clasificar,Rotos,,6.0,Producción,Producción,Google Sheet Producción
+2026-05-21,entrada,TIPO_A,Plancha de 30 Tipo A,PLANCHAS DE 30 DEVOLUCION,PLANCHAS DE 30 DEVOLUCION,5.0,Pedido 7804 · PASCUAL ESPINOLA,Pedido 7804 · PASCUAL ESPINOLA,Manual 20-21 Diego
