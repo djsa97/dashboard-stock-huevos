@@ -919,7 +919,25 @@ stock_flow_table = build_stock_flow_table(resumen_stock_preview, ordered_labels)
 if stock_flow_table.empty:
     st.info("Todavía no hay movimientos para mostrar.")
 else:
-    st.dataframe(stock_flow_table, width="stretch", hide_index=True)
+    flow_event = st.dataframe(
+        stock_flow_table,
+        key="stock_flow_table",
+        width="stretch",
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+    )
+    selected_rows = getattr(getattr(flow_event, "selection", None), "rows", [])
+    if selected_rows:
+        selected_product = str(stock_flow_table.iloc[selected_rows[0]]["Producto"])
+        st.markdown(f"**Detalle de salidas: {selected_product}**")
+        selected_detail = prepare_product_detail(salidas, selected_product)
+        if selected_detail.empty:
+            st.info("No hay salidas para este producto.")
+        else:
+            st.dataframe(selected_detail, width="stretch", hide_index=True)
+    else:
+        st.caption("Seleccioná una fila de la tabla para ver el detalle de salidas de ese producto.")
 
 st.subheader("Stock final calculado")
 render_stock_cards(resumen_stock_preview, ordered_labels, "stock_actual_planchas")
