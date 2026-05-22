@@ -778,7 +778,10 @@ else:
 movimientos, resumen = compute_stock_outputs(base_movimientos)
 entradas = movimientos[movimientos["tipo_movimiento"] == "entrada"].copy() if not movimientos.empty else pd.DataFrame(columns=MOV_COLUMNS)
 salidas = (
-    movimientos[(movimientos["tipo_movimiento"] == "salida") & (movimientos["origen"] == "ERP Pedidos")].copy()
+    movimientos[
+        (movimientos["tipo_movimiento"] == "salida")
+        & (~movimientos["origen"].astype(str).str.contains("Ajuste manual trazable", na=False))
+    ].copy()
     if not movimientos.empty
     else pd.DataFrame(columns=MOV_COLUMNS)
 )
