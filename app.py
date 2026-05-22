@@ -40,6 +40,7 @@ ADJUSTMENT_COLUMN = "ajuste_salida_manual_planchas"
 LEGACY_ADJUSTMENT_COLUMN = "restar_salida_manual_planchas"
 TRANSFERS_OUTPUT = CONFIG_OUTPUT.parent / "ajustes_traspaso.csv"
 TRANSFER_COLUMNS = ["fecha", "bucket_origen", "bucket_destino", "cantidad_planchas", "motivo"]
+STOCK_REAL_OUTPUT = CONFIG_OUTPUT.parent / "stock_real.csv"
 
 
 PALETTE = {
@@ -327,8 +328,8 @@ def with_client_columns(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def render_stock_cards(resumen: pd.DataFrame, ordered_labels: list[str]) -> None:
-    values = {row["display_name"]: row["stock_actual_planchas"] for _, row in resumen.iterrows()}
+def render_stock_cards(resumen: pd.DataFrame, ordered_labels: list[str], value_column: str = "stock_actual_planchas") -> None:
+    values = {row["display_name"]: row.get(value_column, 0.0) for _, row in resumen.iterrows()}
     cards_per_row = 8
     for start in range(0, len(ordered_labels), cards_per_row):
         chunk = ordered_labels[start : start + cards_per_row]
@@ -343,6 +344,55 @@ def render_stock_cards(resumen: pd.DataFrame, ordered_labels: list[str]) -> None
                         f"<div style='font-size:2rem;font-weight:800;color:{color};margin-top:8px'>{format_qty(value)}</div>",
                         unsafe_allow_html=True,
                     )
+
+
+def build_stock_flow_table(resumen: pd.DataFrame, ordered_labels: list[str]) -> pd.DataFrame:
+    if resumen.empty:
+        return pd.DataFrame()
+    rows = []
+    by_label = {str(row["display_name"]): row for _, row in resumen.iterrows()}
+    for label in ordered_labels:
+        row = by_label.get(label)
+        if row is None:
+            continue
+        inicial = float(row.get("stock_inicial_planchas", 0.0) or 0.0)
+        entradas_value = float(row.get("entradas_planchas", 0.0) or 0.0)
+        salidas_value = float(row.get("salidas_planchas", 0.0) or 0.0)
+        final = float(row.get("stock_actual_planchas", 0.0) or 0.0)
+        rows.append(
+            {
+                "Producto": label,
+                "Stock inicial": format_qty(inicial),
+                "Entradas": format_qty(entradas_value),
+                "Salidas": format_qty(salidas_value),
+                "Stock final": format_qty(final),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def load_stock_real(resumen: pd.DataFrame) -> pd.DataFrame:
+    base = resumen[["bucket", "display_name", "stock_actual_planchas"]].copy()
+    base = base.rename(columns={"display_name": "Producto", "stock_actual_planchas": "Stock final"})
+    if STOCK_REAL_OUTPUT.exists():
+        real = load_csv(STOCK_REAL_OUTPUT)
+    else:
+        real = pd.DataFrame(columns=["bucket", "Stock real"])
+    if not real.empty and "bucket" in real.columns:
+        real = real[["bucket", "Stock real"]].copy()
+        base = base.merge(real, on="bucket", how="left")
+    else:
+        base["Stock real"] = None
+    base["Stock real"] = pd.to_numeric(base["Stock real"], errors="coerce")
+    base["Diferencia"] = base["Stock real"] - pd.to_numeric(base["Stock final"], errors="coerce").fillna(0.0)
+    return base
+
+
+def save_stock_real(edited: pd.DataFrame) -> None:
+    result = edited[["bucket", "Producto", "Stock real"]].copy()
+    result = result.rename(columns={"Producto": "display_name"})
+    result["Stock real"] = pd.to_numeric(result["Stock real"], errors="coerce")
+    result.to_csv(STOCK_REAL_OUTPUT, index=False)
 
 
 def align_initial_stock(stock_inicial: pd.DataFrame, resumen: pd.DataFrame) -> pd.DataFrame:
@@ -855,8 +905,48 @@ with st.sidebar:
     st.write(f"Resumen: `{RESUMEN_OUTPUT.name}`")
 
 
-st.subheader("Vista de stock")
-stock_cards_placeholder = st.empty()
+st.subheader("Stock inicial")
+stock_base_date = st.date_input(
+    "Fecha del stock inicial",
+    value=date(2026, 5, 20),
+    help="Fecha de la foto/base manual que estás usando para iniciar el cálculo.",
+)
+st.caption(f"Base usada para calcular desde el {stock_base_date.strftime('%d/%m/%Y')}.")
+render_stock_cards(resumen_stock_preview, ordered_labels, "stock_inicial_planchas")
+
+st.subheader("Movimientos intermedios")
+stock_flow_table = build_stock_flow_table(resumen_stock_preview, ordered_labels)
+if stock_flow_table.empty:
+    st.info("Todavía no hay movimientos para mostrar.")
+else:
+    st.dataframe(stock_flow_table, width="stretch", hide_index=True)
+
+st.subheader("Stock final calculado")
+render_stock_cards(resumen_stock_preview, ordered_labels, "stock_actual_planchas")
+
+st.markdown("**Stock real y diferencia**")
+stock_real_df = load_stock_real(resumen_stock_preview)
+stock_real_view = stock_real_df[["bucket", "Producto", "Stock final", "Stock real", "Diferencia"]].copy()
+edited_stock_real = st.data_editor(
+    stock_real_view,
+    key="stock_real_editor",
+    hide_index=True,
+    width="stretch",
+    column_config={
+        "bucket": st.column_config.TextColumn("Bucket", disabled=True),
+        "Producto": st.column_config.TextColumn("Producto", disabled=True),
+        "Stock final": st.column_config.NumberColumn("Stock final calculado", disabled=True),
+        "Stock real": st.column_config.NumberColumn("Stock real", step=0.01),
+        "Diferencia": st.column_config.NumberColumn("Diferencia", disabled=True),
+    },
+)
+if st.button("Guardar stock real", width="stretch"):
+    save_stock_real(edited_stock_real)
+    st.success("Stock real guardado.")
+    st.rerun()
+
+st.divider()
+st.subheader("Detalle de movimientos")
 
 left_btn, right_btn = st.columns([1, 1])
 if "stock_mode" not in st.session_state:
@@ -999,11 +1089,6 @@ else:
     else:
         st.info("No hay salidas registradas todavía.")
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-with stock_cards_placeholder.container():
-    render_stock_cards(resumen_stock_preview, ordered_labels)
-
 
 with st.expander("Ver movimientos consolidados"):
     mov_show = movimientos.copy()
